@@ -1,0 +1,908 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <title>{% block title %}EventApp{% endblock %}</title>
+    <style>
+      :root {
+        --primary-color: #007bff;
+        --dark-bg: #1a1a1a;
+        --dark-card: #2d2d2d;
+        --dark-text: #ffffff;
+        --dark-text-secondary: #b0b0b0;
+        --dark-border: #404040;
+        --header-bg: #0f0f0f;
+        --header-border: #333333;
+        --accent-color: #00d4ff;
+      }
+      
+      body {
+        background-color: var(--dark-bg);
+        color: var(--dark-text);
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        padding-top: 80px; /* Space for header */
+        padding-bottom: 80px; /* Space for bottom navigation */
+      }
+      
+      /* Header Styles */
+      .app-header {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        background: linear-gradient(135deg, var(--header-bg) 0%, #1a1a1a 100%);
+        border-bottom: 2px solid var(--header-border);
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        z-index: 1000;
+        backdrop-filter: blur(10px);
+      }
+      
+      .header-content {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 20px;
+        height: 80px;
+        max-width: 1200px;
+        margin: 0 auto;
+      }
+      
+      .logo-section {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+      }
+      
+      .app-logo {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        text-decoration: none;
+        color: var(--dark-text);
+        transition: all 0.3s ease;
+      }
+      
+      .app-logo:hover {
+        color: var(--accent-color);
+        text-decoration: none;
+        transform: translateY(-1px);
+      }
+      
+      .logo-icon {
+        width: 48px;
+        height: 48px;
+        background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 24px;
+        font-weight: 700;
+        box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);
+        transition: all 0.3s ease;
+      }
+      
+      .app-logo:hover .logo-icon {
+        transform: scale(1.05);
+        box-shadow: 0 6px 16px rgba(0, 123, 255, 0.4);
+      }
+      
+      .logo-text {
+        display: flex;
+        flex-direction: column;
+      }
+      
+      .app-name {
+        font-size: 24px;
+        font-weight: 800;
+        color: var(--dark-text);
+        margin: 0;
+        line-height: 1;
+        background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+      }
+      
+      .app-tagline {
+        font-size: 12px;
+        color: var(--dark-text-secondary);
+        margin: 0;
+        font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+      }
+      
+      .header-nav {
+        display: flex;
+        align-items: center;
+        gap: 24px;
+      }
+      
+      .nav-menu {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        list-style: none;
+        margin: 0;
+        padding: 0;
+      }
+      
+      .nav-item-header {
+        position: relative;
+      }
+      
+      .nav-link-header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 12px 16px;
+        color: var(--dark-text-secondary);
+        text-decoration: none;
+        border-radius: 8px;
+        font-weight: 500;
+        font-size: 14px;
+        transition: all 0.3s ease;
+        position: relative;
+      }
+      
+      .nav-link-header:hover {
+        color: var(--dark-text);
+        background-color: rgba(0, 123, 255, 0.1);
+        text-decoration: none;
+        transform: translateY(-1px);
+      }
+      
+      .nav-link-header.active {
+        color: var(--accent-color);
+        background-color: rgba(0, 212, 255, 0.1);
+      }
+      
+      .nav-link-header i {
+        font-size: 16px;
+      }
+      
+      .user-section {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+      }
+      
+      .user-info {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 8px 16px;
+        background-color: rgba(0, 123, 255, 0.1);
+        border-radius: 25px;
+        border: 1px solid rgba(0, 123, 255, 0.2);
+      }
+      
+      .user-avatar {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-weight: 700;
+        font-size: 14px;
+      }
+      
+      .user-details {
+        display: flex;
+        flex-direction: column;
+      }
+      
+      .user-name {
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--dark-text);
+        margin: 0;
+        line-height: 1;
+      }
+      
+      .user-role {
+        font-size: 11px;
+        color: var(--accent-color);
+        margin: 0;
+        font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+      
+      .settings-btn {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background-color: rgba(0, 123, 255, 0.1);
+        border: 1px solid rgba(0, 123, 255, 0.2);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--dark-text-secondary);
+        text-decoration: none;
+        transition: all 0.3s ease;
+      }
+      
+      .settings-btn:hover {
+        background-color: rgba(0, 123, 255, 0.2);
+        color: var(--accent-color);
+        text-decoration: none;
+        transform: rotate(90deg);
+      }
+      
+      /* Mobile Header */
+      @media (max-width: 768px) {
+        .header-content {
+          padding: 0 16px;
+          height: 70px;
+        }
+        
+        .logo-icon {
+          width: 40px;
+          height: 40px;
+          font-size: 20px;
+        }
+        
+        .app-name {
+          font-size: 20px;
+        }
+        
+        .app-tagline {
+          font-size: 10px;
+        }
+        
+        .header-nav {
+          gap: 12px;
+        }
+        
+        .nav-menu {
+          display: none;
+        }
+        
+        .user-info {
+          padding: 6px 12px;
+        }
+        
+        .user-avatar {
+          width: 32px;
+          height: 32px;
+          font-size: 12px;
+        }
+        
+        .user-name {
+          font-size: 13px;
+        }
+        
+        .user-role {
+          font-size: 10px;
+        }
+        
+        .settings-btn {
+          width: 36px;
+          height: 36px;
+        }
+        
+        body {
+          padding-top: 70px;
+        }
+      }
+      
+      
+      .card {
+        background-color: var(--dark-card);
+        border: 1px solid var(--dark-border);
+        color: var(--dark-text);
+      }
+      
+      .card-body {
+        color: var(--dark-text);
+      }
+      
+      .btn-primary {
+        background-color: var(--primary-color);
+        border-color: var(--primary-color);
+      }
+      
+      .btn-primary:hover {
+        background-color: #0056b3;
+        border-color: #0056b3;
+      }
+      
+      .form-control {
+        background-color: var(--dark-card);
+        border: 1px solid var(--dark-border);
+        color: var(--dark-text);
+      }
+      
+      .form-control:focus {
+        background-color: var(--dark-card);
+        border-color: var(--primary-color);
+        color: var(--dark-text);
+        box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+      }
+      
+      .alert {
+        background-color: var(--dark-card);
+        border: 1px solid var(--dark-border);
+        color: var(--dark-text);
+      }
+      
+      /* Bottom Navigation */
+      .bottom-nav {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background-color: var(--dark-card);
+        border-top: 1px solid var(--dark-border);
+        padding: 10px 0;
+        z-index: 1000;
+        display: flex;
+        justify-content: space-around;
+        align-items: center;
+      }
+      
+      .nav-item {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-decoration: none;
+        color: var(--dark-text-secondary);
+        transition: color 0.3s;
+        flex: 1;
+      }
+      
+      .nav-item.active {
+        color: var(--primary-color);
+      }
+      
+      .nav-item i {
+        font-size: 20px;
+        margin-bottom: 4px;
+      }
+      
+      .nav-item span {
+        font-size: 12px;
+        font-weight: 500;
+      }
+      
+      
+      /* Events Grid */
+      .events-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+        gap: 24px;
+        margin-bottom: 24px;
+      }
+      
+      .event-card-container {
+        position: relative;
+      }
+      
+      /* Event Cards */
+      .event-card {
+        background-color: var(--dark-card);
+        border: 1px solid var(--dark-border);
+        border-radius: 16px;
+        padding: 0;
+        position: relative;
+        transition: all 0.3s ease;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+      
+      /* Event Image */
+      .event-image {
+        position: relative;
+        height: 200px;
+        overflow: hidden;
+        border-radius: 16px 16px 0 0;
+      }
+      
+      .event-poster {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        transition: transform 0.3s ease;
+      }
+      
+      .event-card:hover .event-poster {
+        transform: scale(1.05);
+      }
+      
+      .event-poster-placeholder {
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: relative;
+        overflow: hidden;
+      }
+      
+      .placeholder-icon {
+        font-size: 48px;
+        color: rgba(255, 255, 255, 0.3);
+        z-index: 1;
+      }
+      
+      .placeholder-overlay {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background: linear-gradient(transparent, rgba(0, 0, 0, 0.7));
+        padding: 20px 16px 16px;
+        z-index: 2;
+      }
+      
+      .event-category {
+        color: white;
+        font-size: 14px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+      }
+      
+      /* Status Badge on Image */
+      .event-image .status-badge {
+        position: absolute;
+        top: 16px;
+        right: 16px;
+        z-index: 3;
+        backdrop-filter: blur(10px);
+        background-color: rgba(0, 0, 0, 0.7);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+      }
+      
+      .event-image .status-badge.organized {
+        background-color: rgba(40, 167, 69, 0.9);
+      }
+      
+      .event-image .status-badge.accepted {
+        background-color: rgba(40, 167, 69, 0.9);
+      }
+      
+      .event-image .status-badge.maybe {
+        background-color: rgba(255, 193, 7, 0.9);
+        color: #212529;
+      }
+      
+      .event-image .status-badge.declined {
+        background-color: rgba(220, 53, 69, 0.9);
+      }
+      
+      .event-image .status-badge.waitlisted {
+        background-color: rgba(108, 117, 125, 0.9);
+      }
+      
+      .event-image .status-badge.invited {
+        background-color: rgba(0, 123, 255, 0.9);
+      }
+      
+      .event-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 8px 24px rgba(0, 123, 255, 0.15);
+        border-color: var(--primary-color);
+      }
+      
+      /* Status Badge */
+      .status-badge {
+        position: absolute;
+        top: 20px;
+        right: 20px;
+        padding: 6px 12px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+      
+      .status-badge.organized {
+        background-color: #28a745;
+        color: white;
+      }
+      
+      .status-badge.accepted {
+        background-color: #28a745;
+        color: white;
+      }
+      
+      .status-badge.maybe {
+        background-color: #ffc107;
+        color: #212529;
+      }
+      
+      .status-badge.declined {
+        background-color: #dc3545;
+        color: white;
+      }
+      
+      .status-badge.waitlisted {
+        background-color: #6c757d;
+        color: white;
+      }
+      
+      .status-badge.invited {
+        background-color: var(--primary-color);
+        color: white;
+      }
+      
+      /* Event Header */
+      .event-header {
+        padding: 24px 24px 0;
+        margin-bottom: 20px;
+      }
+      
+      .event-title {
+        font-size: 22px;
+        font-weight: 700;
+        margin-bottom: 8px;
+        color: var(--dark-text);
+        line-height: 1.3;
+      }
+      
+      .event-description {
+        color: var(--dark-text-secondary);
+        font-size: 15px;
+        line-height: 1.5;
+        margin: 0;
+      }
+      
+      /* Event Details */
+      .event-details {
+        flex: 1;
+        margin-bottom: 20px;
+        padding: 0 24px;
+      }
+      
+      .detail-row {
+        display: flex;
+        gap: 16px;
+        margin-bottom: 16px;
+      }
+      
+      .detail-item {
+        flex: 1;
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+      }
+      
+      .detail-item i {
+        color: var(--primary-color);
+        font-size: 16px;
+        margin-top: 2px;
+        width: 16px;
+        text-align: center;
+      }
+      
+      .detail-content {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+      
+      .detail-label {
+        font-size: 12px;
+        color: var(--dark-text-secondary);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        font-weight: 500;
+      }
+      
+      .detail-value {
+        font-size: 14px;
+        color: var(--dark-text);
+        font-weight: 500;
+      }
+      
+      /* Event Footer */
+      .event-footer {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 16px 24px 24px;
+        border-top: 1px solid var(--dark-border);
+        margin-top: auto;
+      }
+      
+      .organizer-info {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      
+      .organizer-avatar {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, var(--primary-color), #0056b3);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-weight: 700;
+        font-size: 16px;
+        box-shadow: 0 2px 8px rgba(0, 123, 255, 0.3);
+      }
+      
+      .organizer-details {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+      
+      .organizer-label {
+        font-size: 12px;
+        color: var(--dark-text-secondary);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        font-weight: 500;
+      }
+      
+      .organizer-name {
+        font-size: 14px;
+        color: var(--dark-text);
+        font-weight: 600;
+      }
+      
+      /* Action Button */
+      .action-btn {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 8px 16px;
+        background-color: var(--primary-color);
+        color: white;
+        text-decoration: none;
+        border-radius: 8px;
+        font-size: 14px;
+        font-weight: 500;
+        transition: all 0.2s ease;
+      }
+      
+      .action-btn:hover {
+        background-color: #0056b3;
+        color: white;
+        text-decoration: none;
+        transform: translateY(-1px);
+      }
+      
+      .action-btn i {
+        font-size: 12px;
+      }
+      
+      /* Event Link Overlay */
+      .event-link {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 1;
+        border-radius: 16px;
+      }
+      
+      .action-btn {
+        position: relative;
+        z-index: 2;
+      }
+      
+      /* Mobile Responsive */
+      @media (max-width: 768px) {
+        .events-grid {
+          grid-template-columns: 1fr;
+          gap: 16px;
+        }
+        
+        .event-card {
+          padding: 20px;
+        }
+        
+        .detail-row {
+          flex-direction: column;
+          gap: 12px;
+        }
+        
+        .event-footer {
+          flex-direction: column;
+          gap: 16px;
+          align-items: flex-start;
+        }
+        
+        .action-btn {
+          align-self: stretch;
+          justify-content: center;
+        }
+      }
+      
+      /* Welcome Section */
+      .welcome-section {
+        padding: 30px 0;
+        margin-bottom: 30px;
+        background: linear-gradient(135deg, rgba(0, 123, 255, 0.05) 0%, rgba(0, 212, 255, 0.05) 100%);
+        border-radius: 16px;
+        border: 1px solid rgba(0, 123, 255, 0.1);
+      }
+      
+      .welcome-title {
+        font-size: 32px;
+        font-weight: 800;
+        margin-bottom: 8px;
+        color: var(--dark-text);
+        background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+      }
+      
+      .welcome-subtitle {
+        font-size: 16px;
+        color: var(--dark-text-secondary);
+        margin-bottom: 0;
+        font-weight: 500;
+      }
+      
+      /* Hide bottom nav on desktop */
+      @media (min-width: 768px) {
+        .bottom-nav {
+          display: none;
+        }
+        
+        body {
+          padding-bottom: 0;
+        }
+        
+      }
+    </style>
+  </head>
+  <body>
+    <!-- App Header -->
+    <header class="app-header">
+      <div class="header-content">
+        <!-- Logo Section -->
+        <div class="logo-section">
+          <a href="{{ url_for('index') }}" class="app-logo">
+            <div class="logo-icon">
+              <i class="fas fa-calendar-check"></i>
+            </div>
+            <div class="logo-text">
+              <h1 class="app-name">EventApp</h1>
+              <p class="app-tagline">Event Management</p>
+            </div>
+          </a>
+        </div>
+        
+        <!-- Navigation Section -->
+        <div class="header-nav">
+          {% if current_user.is_authenticated %}
+            <ul class="nav-menu d-none d-lg-flex">
+              <li class="nav-item-header">
+                <a href="{{ url_for('my_events') }}" class="nav-link-header {% if request.endpoint == 'my_events' %}active{% endif %}">
+                  <i class="fas fa-calendar"></i>
+                  <span>My Events</span>
+                </a>
+              </li>
+              <li class="nav-item-header">
+                <a href="{{ url_for('past_events') }}" class="nav-link-header {% if request.endpoint == 'past_events' %}active{% endif %}">
+                  <i class="fas fa-history"></i>
+                  <span>Past Events</span>
+                </a>
+              </li>
+              <li class="nav-item-header">
+                <a href="{{ url_for('notifications') }}" class="nav-link-header {% if request.endpoint == 'notifications' %}active{% endif %}">
+                  <i class="fas fa-bell"></i>
+                  <span>Notifications</span>
+                  {% if current_user.notifications|selectattr('read_at', 'none')|list|length > 0 %}
+                    <span class="badge badge-danger" style="background-color: #dc3545; color: white; border-radius: 50%; padding: 2px 6px; font-size: 10px; margin-left: 4px;">{{ current_user.notifications|selectattr('read_at', 'none')|list|length }}</span>
+                  {% endif %}
+                </a>
+              </li>
+              {% if current_user.is_admin %}
+                <li class="nav-item-header">
+                  <a href="{{ url_for('dashboard') }}" class="nav-link-header {% if request.endpoint == 'dashboard' %}active{% endif %}">
+                    <i class="fas fa-tachometer-alt"></i>
+                    <span>Dashboard</span>
+                  </a>
+                </li>
+                <li class="nav-item-header">
+                  <a href="{{ url_for('analytics') }}" class="nav-link-header {% if request.endpoint == 'analytics' %}active{% endif %}">
+                    <i class="fas fa-chart-bar"></i>
+                    <span>Analytics</span>
+                  </a>
+              </li>
+            {% endif %}
+            </ul>
+          {% endif %}
+          
+          <!-- User Section -->
+          <div class="user-section">
+          {% if current_user.is_authenticated %}
+              <div class="user-info">
+                <div class="user-avatar">
+                  {{ current_user.username[:2].upper() }}
+                </div>
+                <div class="user-details">
+                  <p class="user-name">{{ current_user.display_name }}</p>
+                  <p class="user-role">{% if current_user.is_admin %}Admin{% else %}User{% endif %}</p>
+                </div>
+              </div>
+              <a href="{{ url_for('profile') }}" class="settings-btn" title="Settings">
+                <i class="fas fa-cog"></i>
+              </a>
+              <a href="{{ url_for('logout') }}" class="settings-btn" title="Logout">
+                <i class="fas fa-sign-out-alt"></i>
+              </a>
+          {% else %}
+              <a href="{{ url_for('login') }}" class="nav-link-header">
+                <i class="fas fa-sign-in-alt"></i>
+                <span>Login</span>
+              </a>
+              <a href="{{ url_for('register') }}" class="nav-link-header">
+                <i class="fas fa-user-plus"></i>
+                <span>Register</span>
+              </a>
+          {% endif %}
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <div class="container">
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          {% for category, message in messages %}
+            <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+              {{ message }}
+              <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                <span aria-hidden="true">&times;</span>
+              </button>
+            </div>
+          {% endfor %}
+        {% endif %}
+      {% endwith %}
+      {% block content %}{% endblock %}
+    </div>
+
+          <!-- Bottom Navigation (Mobile) -->
+    {% if current_user.is_authenticated %}
+    <div class="bottom-nav d-md-none">
+      <a href="{{ url_for('index') }}" class="nav-item {% if request.endpoint == 'index' %}active{% endif %}">
+        <i class="fas fa-home"></i>
+        <span>Home</span>
+      </a>
+      <a href="{{ url_for('past_events') }}" class="nav-item {% if request.endpoint == 'past_events' %}active{% endif %}">
+        <i class="fas fa-calendar-check"></i>
+        <span>Past Events</span>
+      </a>
+      <a href="{{ url_for('notifications') }}" class="nav-item {% if request.endpoint == 'notifications' %}active{% endif %}">
+        <i class="fas fa-bell"></i>
+        <span>Notifications</span>
+      </a>
+      <a href="{{ url_for('profile') }}" class="nav-item {% if request.endpoint == 'profile' %}active{% endif %}">
+        <i class="fas fa-user"></i>
+        <span>My Profile</span>
+      </a>
+    </div>
+    {% endif %}
+
+
+    <script src="https://code.jquery.com/jquery-3.6.0.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/js/bootstrap.bundle.min.js"></script>
+  </body>
+</html>

@@ -1,0 +1,72 @@
+{% extends 'base.html' %}
+{% block title %}{{ event.name }} - EventApp{% endblock %}
+{% block content %}
+  <div class="welcome-section">
+    <div class="d-flex justify-content-between align-items-center">
+      <div>
+        <h1 class="welcome-title">{{ event.name }}</h1>
+        <p class="welcome-subtitle">Event details and RSVP</p>
+      </div>
+      {% if current_user.is_admin %}
+        <a href="{{ url_for('create_event') }}" class="btn btn-primary">
+          <i class="fas fa-plus mr-2"></i>Create Event
+        </a>
+      {% endif %}
+    </div>
+  </div>
+  <p><strong>Date & Time:</strong> {{ event.date.strftime('%Y-%m-%d %H:%M') }}</p>
+  <p><strong>Location:</strong> {{ event.location }}</p>
+  <p><strong>Description:</strong> {{ event.description }}</p>
+  <p><strong>Capacity:</strong> {{ event.capacity }}</p>
+  <p><strong>Accepted:</strong> {{ event.accepted_count }} | <strong>Maybe:</strong> {{ event.maybe_count }} | <strong>Declined:</strong> {{ event.declined_count }} | <strong>Spots left:</strong> {{ event.available_spots }}</p>
+  {% if event.rsvp_deadline %}
+    <p><strong>RSVP deadline:</strong> {{ event.rsvp_deadline.strftime('%Y-%m-%d %H:%M') }}</p>
+  {% endif %}
+
+  {# RSVP form #}
+  <hr>
+  <h4>RSVP</h4>
+  <form method="post">
+    <div class="form-group">
+      <label for="status">Your response</label>
+      <select class="form-control" id="status" name="status" required>
+        <option value="Accepted" {% if rsvp and rsvp.status == 'Accepted' %}selected{% endif %}>Accept</option>
+        <option value="Maybe" {% if rsvp and rsvp.status == 'Maybe' %}selected{% endif %}>Maybe</option>
+        <option value="Declined" {% if rsvp and rsvp.status == 'Declined' %}selected{% endif %}>Decline</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label for="guests">Number of additional guests</label>
+      <input type="number" class="form-control" id="guests" name="guests" min="0" value="{{ rsvp.guests if rsvp else 0 }}">
+    </div>
+    <button type="submit" class="btn btn-primary">Submit RSVP</button>
+  </form>
+
+  {% if rsvp %}
+    <hr>
+    <h5>Your current response: {{ rsvp.status }}</h5>
+    {% if rsvp.status == 'Accepted' and qr_image %}
+      <p>Show this QR code at check‑in:</p>
+      <img src="data:image/png;base64,{{ qr_image }}" alt="QR Code" class="img-fluid" style="max-width:200px;">
+      <p><small>Your code: {{ rsvp.qr_code }}</small></p>
+    {% endif %}
+  {% endif %}
+
+  {% if current_user.id == event.creator_id or current_user.is_admin %}
+    <hr>
+    <h5>Event Management</h5>
+    <div class="btn-group" role="group">
+      <a href="{{ url_for('update_event', event_id=event.id) }}" class="btn btn-secondary">Edit Event</a>
+      <a href="{{ url_for('event_attendees', event_id=event.id) }}" class="btn btn-info">View Attendees</a>
+      <a href="{{ url_for('export_attendees', event_id=event.id) }}" class="btn btn-success">Export CSV</a>
+    </div>
+    <div class="btn-group mt-2" role="group">
+      <form method="post" action="{{ url_for('duplicate_event', event_id=event.id) }}" style="display: inline;">
+        <button type="submit" class="btn btn-warning" onclick="return confirm('Duplicate this event?')">Duplicate</button>
+      </form>
+      <form method="post" action="{{ url_for('cancel_event', event_id=event.id) }}" style="display: inline;">
+        <button type="submit" class="btn btn-danger" onclick="return confirm('Are you sure you want to cancel this event? This action cannot be undone.')">Cancel Event</button>
+      </form>
+    </div>
+  {% endif %}
+{% endblock %}
