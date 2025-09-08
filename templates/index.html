@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-{% block title %}Home - EventApp{% endblock %}
+{% block title %}Home - Noble Quest{% endblock %}
 {% block content %}
   {% if current_user.is_authenticated %}
     <!-- Welcome Section -->
@@ -18,10 +18,10 @@
     </div>
   {% else %}
     <!-- Hero Section for non-authenticated users -->
-    <div class="jumbotron bg-primary text-white mb-4">
+    <div class="jumbotron hero-section text-white mb-4">
       <div class="container">
-        <h1 class="display-4">Welcome to EventApp</h1>
-        <p class="lead">Discover, create, and manage events with ease. RSVP to events and get your QR code for seamless check-ins.</p>
+        <h1 class="display-4">Welcome to Noble Quest</h1>
+        <p class="lead">Discover, create, and manage educational events with ease. RSVP to events and get your QR code for seamless check-ins.</p>
         <a class="btn btn-light btn-lg" href="{{ url_for('register') }}" role="button">Get Started</a>
       </div>
     </div>
@@ -102,6 +102,22 @@
                   <div class="detail-content">
                     <span class="detail-label">Attendees</span>
                     <span class="detail-value">{{ event.accepted_count }}{% if event.capacity %} / {{ event.capacity }}{% endif %}</span>
+                  </div>
+                </div>
+              </div>
+              
+              <div class="detail-row">
+                <div class="detail-item">
+                  <i class="fas fa-dollar-sign"></i>
+                  <div class="detail-content">
+                    <span class="detail-label">Price</span>
+                    <span class="detail-value {% if event.price == 0 %}free-price{% else %}paid-price{% endif %}">
+                      {% if event.price == 0 %}
+                        FREE
+                      {% else %}
+                        {{ get_currency_info(default_country).symbol }}{{ "%.2f"|format(event.price) }}
+                      {% endif %}
+                    </span>
                   </div>
                 </div>
               </div>

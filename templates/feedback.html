@@ -1,0 +1,448 @@
+{% extends 'base.html' %}
+{% block title %}Event Feedback - Noble Quest{% endblock %}
+{% block content %}
+  <div class="welcome-section">
+    <div class="d-flex justify-content-between align-items-center">
+      <div>
+        <h1 class="welcome-title">Event Feedback</h1>
+        <p class="welcome-subtitle">Help us improve by sharing your experience</p>
+      </div>
+      <div>
+        <a href="{{ url_for('event_detail', event_id=event.id) }}" class="btn btn-secondary">
+          <i class="fas fa-arrow-left mr-2"></i>Back to Event
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="col-md-8">
+      <div class="card">
+        <div class="card-header">
+          <h5 class="mb-0">
+            <i class="fas fa-star mr-2"></i>Feedback for: {{ event.name }}
+          </h5>
+          <small class="text-muted">{{ event.start_date.strftime('%Y-%m-%d %H:%M') }} at {{ event.location }}</small>
+        </div>
+        <div class="card-body">
+          <form method="post">
+            <!-- Overall Rating -->
+            <div class="form-group">
+              <label class="form-label">
+                <i class="fas fa-star mr-2"></i>Overall Event Rating
+                <span class="text-danger">*</span>
+              </label>
+              <div class="rating-scale">
+                <div class="rating-options">
+                  <input type="radio" id="overall_1" name="overall_rating" value="1" required>
+                  <label for="overall_1" class="rating-option">
+                    <span class="rating-number">1</span>
+                    <span class="rating-label">Poor</span>
+                  </label>
+                  
+                  <input type="radio" id="overall_2" name="overall_rating" value="2" required>
+                  <label for="overall_2" class="rating-option">
+                    <span class="rating-number">2</span>
+                    <span class="rating-label">Fair</span>
+                  </label>
+                  
+                  <input type="radio" id="overall_3" name="overall_rating" value="3" required>
+                  <label for="overall_3" class="rating-option">
+                    <span class="rating-number">3</span>
+                    <span class="rating-label">Good</span>
+                  </label>
+                  
+                  <input type="radio" id="overall_4" name="overall_rating" value="4" required>
+                  <label for="overall_4" class="rating-option">
+                    <span class="rating-number">4</span>
+                    <span class="rating-label">Very Good</span>
+                  </label>
+                  
+                  <input type="radio" id="overall_5" name="overall_rating" value="5" required>
+                  <label for="overall_5" class="rating-option">
+                    <span class="rating-number">5</span>
+                    <span class="rating-label">Excellent</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <!-- Content Quality -->
+            <div class="form-group">
+              <label class="form-label">
+                <i class="fas fa-book mr-2"></i>Content Quality
+                <span class="text-danger">*</span>
+              </label>
+              <div class="rating-scale">
+                <div class="rating-options">
+                  <input type="radio" id="content_1" name="content_quality" value="1" required>
+                  <label for="content_1" class="rating-option">
+                    <span class="rating-number">1</span>
+                    <span class="rating-label">Poor</span>
+                  </label>
+                  
+                  <input type="radio" id="content_2" name="content_quality" value="2" required>
+                  <label for="content_2" class="rating-option">
+                    <span class="rating-number">2</span>
+                    <span class="rating-label">Fair</span>
+                  </label>
+                  
+                  <input type="radio" id="content_3" name="content_quality" value="3" required>
+                  <label for="content_3" class="rating-option">
+                    <span class="rating-number">3</span>
+                    <span class="rating-label">Good</span>
+                  </label>
+                  
+                  <input type="radio" id="content_4" name="content_quality" value="4" required>
+                  <label for="content_4" class="rating-option">
+                    <span class="rating-number">4</span>
+                    <span class="rating-label">Very Good</span>
+                  </label>
+                  
+                  <input type="radio" id="content_5" name="content_quality" value="5" required>
+                  <label for="content_5" class="rating-option">
+                    <span class="rating-number">5</span>
+                    <span class="rating-label">Excellent</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <!-- Organization -->
+            <div class="form-group">
+              <label class="form-label">
+                <i class="fas fa-tasks mr-2"></i>Event Organization
+                <span class="text-danger">*</span>
+              </label>
+              <div class="rating-scale">
+                <div class="rating-options">
+                  <input type="radio" id="org_1" name="organization" value="1" required>
+                  <label for="org_1" class="rating-option">
+                    <span class="rating-number">1</span>
+                    <span class="rating-label">Poor</span>
+                  </label>
+                  
+                  <input type="radio" id="org_2" name="organization" value="2" required>
+                  <label for="org_2" class="rating-option">
+                    <span class="rating-number">2</span>
+                    <span class="rating-label">Fair</span>
+                  </label>
+                  
+                  <input type="radio" id="org_3" name="organization" value="3" required>
+                  <label for="org_3" class="rating-option">
+                    <span class="rating-number">3</span>
+                    <span class="rating-label">Good</span>
+                  </label>
+                  
+                  <input type="radio" id="org_4" name="organization" value="4" required>
+                  <label for="org_4" class="rating-option">
+                    <span class="rating-number">4</span>
+                    <span class="rating-label">Very Good</span>
+                  </label>
+                  
+                  <input type="radio" id="org_5" name="organization" value="5" required>
+                  <label for="org_5" class="rating-option">
+                    <span class="rating-number">5</span>
+                    <span class="rating-label">Excellent</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <!-- Venue Rating -->
+            <div class="form-group">
+              <label class="form-label">
+                <i class="fas fa-map-marker-alt mr-2"></i>Venue Quality
+                <span class="text-danger">*</span>
+              </label>
+              <div class="rating-scale">
+                <div class="rating-options">
+                  <input type="radio" id="venue_1" name="venue_rating" value="1" required>
+                  <label for="venue_1" class="rating-option">
+                    <span class="rating-number">1</span>
+                    <span class="rating-label">Poor</span>
+                  </label>
+                  
+                  <input type="radio" id="venue_2" name="venue_rating" value="2" required>
+                  <label for="venue_2" class="rating-option">
+                    <span class="rating-number">2</span>
+                    <span class="rating-label">Fair</span>
+                  </label>
+                  
+                  <input type="radio" id="venue_3" name="venue_rating" value="3" required>
+                  <label for="venue_3" class="rating-option">
+                    <span class="rating-number">3</span>
+                    <span class="rating-label">Good</span>
+                  </label>
+                  
+                  <input type="radio" id="venue_4" name="venue_rating" value="4" required>
+                  <label for="venue_4" class="rating-option">
+                    <span class="rating-number">4</span>
+                    <span class="rating-label">Very Good</span>
+                  </label>
+                  
+                  <input type="radio" id="venue_5" name="venue_rating" value="5" required>
+                  <label for="venue_5" class="rating-option">
+                    <span class="rating-number">5</span>
+                    <span class="rating-label">Excellent</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <!-- Value for Money -->
+            <div class="form-group">
+              <label class="form-label">
+                <i class="fas fa-dollar-sign mr-2"></i>Value for Money
+                <span class="text-danger">*</span>
+              </label>
+              <div class="rating-scale">
+                <div class="rating-options">
+                  <input type="radio" id="value_1" name="value_for_money" value="1" required>
+                  <label for="value_1" class="rating-option">
+                    <span class="rating-number">1</span>
+                    <span class="rating-label">Poor</span>
+                  </label>
+                  
+                  <input type="radio" id="value_2" name="value_for_money" value="2" required>
+                  <label for="value_2" class="rating-option">
+                    <span class="rating-number">2</span>
+                    <span class="rating-label">Fair</span>
+                  </label>
+                  
+                  <input type="radio" id="value_3" name="value_for_money" value="3" required>
+                  <label for="value_3" class="rating-option">
+                    <span class="rating-number">3</span>
+                    <span class="rating-label">Good</span>
+                  </label>
+                  
+                  <input type="radio" id="value_4" name="value_for_money" value="4" required>
+                  <label for="value_4" class="rating-option">
+                    <span class="rating-number">4</span>
+                    <span class="rating-label">Very Good</span>
+                  </label>
+                  
+                  <input type="radio" id="value_5" name="value_for_money" value="5" required>
+                  <label for="value_5" class="rating-option">
+                    <span class="rating-number">5</span>
+                    <span class="rating-label">Excellent</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <!-- Likelihood to Recommend -->
+            <div class="form-group">
+              <label class="form-label">
+                <i class="fas fa-thumbs-up mr-2"></i>Likelihood to Recommend
+                <span class="text-danger">*</span>
+              </label>
+              <div class="rating-scale">
+                <div class="rating-options">
+                  <input type="radio" id="recommend_1" name="likelihood_to_recommend" value="1" required>
+                  <label for="recommend_1" class="rating-option">
+                    <span class="rating-number">1</span>
+                    <span class="rating-label">Not at all</span>
+                  </label>
+                  
+                  <input type="radio" id="recommend_2" name="likelihood_to_recommend" value="2" required>
+                  <label for="recommend_2" class="rating-option">
+                    <span class="rating-number">2</span>
+                    <span class="rating-label">Unlikely</span>
+                  </label>
+                  
+                  <input type="radio" id="recommend_3" name="likelihood_to_recommend" value="3" required>
+                  <label for="recommend_3" class="rating-option">
+                    <span class="rating-number">3</span>
+                    <span class="rating-label">Neutral</span>
+                  </label>
+                  
+                  <input type="radio" id="recommend_4" name="likelihood_to_recommend" value="4" required>
+                  <label for="recommend_4" class="rating-option">
+                    <span class="rating-number">4</span>
+                    <span class="rating-label">Likely</span>
+                  </label>
+                  
+                  <input type="radio" id="recommend_5" name="likelihood_to_recommend" value="5" required>
+                  <label for="recommend_5" class="rating-option">
+                    <span class="rating-number">5</span>
+                    <span class="rating-label">Very Likely</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <!-- Additional Comments -->
+            <div class="form-group">
+              <label for="additional_comments" class="form-label">
+                <i class="fas fa-comment mr-2"></i>Additional Comments
+                <span class="text-muted">(Optional)</span>
+              </label>
+              <textarea class="form-control" id="additional_comments" name="additional_comments" rows="4" placeholder="Please share any additional thoughts, suggestions, or feedback about the event..."></textarea>
+            </div>
+
+            <div class="text-center mt-4">
+              <button type="submit" class="btn btn-primary btn-lg">
+                <i class="fas fa-paper-plane mr-2"></i>Submit Feedback
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+    
+    <div class="col-md-4">
+      <div class="card">
+        <div class="card-header">
+          <h6 class="mb-0">
+            <i class="fas fa-info-circle mr-2"></i>Event Information
+          </h6>
+        </div>
+        <div class="card-body">
+          <div class="event-info">
+            <div class="info-item">
+              <i class="fas fa-calendar-alt"></i>
+              <span><strong>Date:</strong> {{ event.start_date.strftime('%B %d, %Y') }}</span>
+            </div>
+            <div class="info-item">
+              <i class="fas fa-clock"></i>
+              <span><strong>Time:</strong> {{ event.start_date.strftime('%I:%M %p') }}{% if event.end_date %} - {{ event.end_date.strftime('%I:%M %p') }}{% endif %}</span>
+            </div>
+            <div class="info-item">
+              <i class="fas fa-map-marker-alt"></i>
+              <span><strong>Location:</strong> {{ event.location }}</span>
+            </div>
+            {% if event.description %}
+            <div class="info-item">
+              <i class="fas fa-info"></i>
+              <span><strong>Description:</strong> {{ event.description[:100] }}{% if event.description|length > 100 %}...{% endif %}</span>
+            </div>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+      
+      <div class="card mt-3">
+        <div class="card-header">
+          <h6 class="mb-0">
+            <i class="fas fa-lightbulb mr-2"></i>Feedback Tips
+          </h6>
+        </div>
+        <div class="card-body">
+          <ul class="list-unstyled">
+            <li><i class="fas fa-check text-success mr-2"></i>Be honest and constructive</li>
+            <li><i class="fas fa-check text-success mr-2"></i>Focus on your experience</li>
+            <li><i class="fas fa-check text-success mr-2"></i>Provide specific examples</li>
+            <li><i class="fas fa-check text-success mr-2"></i>Suggest improvements</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+{% endblock %}
+
+{% block scripts %}
+<style>
+.rating-scale {
+  margin-top: 10px;
+}
+
+.rating-options {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.rating-option {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 15px 10px;
+  border: 2px solid var(--dark-border);
+  border-radius: 12px;
+  background-color: var(--dark-card);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  min-width: 80px;
+  text-align: center;
+}
+
+.rating-option:hover {
+  border-color: var(--primary-color);
+  background-color: rgba(0, 123, 255, 0.1);
+  transform: translateY(-2px);
+}
+
+.rating-option input[type="radio"] {
+  display: none;
+}
+
+.rating-option input[type="radio"]:checked + label,
+.rating-option:has(input[type="radio"]:checked) {
+  border-color: var(--primary-color);
+  background-color: var(--primary-color);
+  color: white;
+}
+
+.rating-number {
+  font-size: 24px;
+  font-weight: bold;
+  margin-bottom: 5px;
+}
+
+.rating-label {
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.form-label {
+  font-weight: 600;
+  color: var(--dark-text);
+  margin-bottom: 10px;
+  display: block;
+}
+
+.event-info .info-item {
+  display: flex;
+  align-items: center;
+  margin-bottom: 12px;
+  padding: 8px 0;
+}
+
+.event-info .info-item i {
+  width: 20px;
+  margin-right: 12px;
+  color: var(--primary-color);
+}
+
+.event-info .info-item span {
+  color: var(--dark-text);
+  font-size: 14px;
+}
+
+@media (max-width: 768px) {
+  .rating-options {
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .rating-option {
+    flex-direction: row;
+    justify-content: space-between;
+    min-width: auto;
+    padding: 12px 15px;
+  }
+  
+  .rating-number {
+    font-size: 20px;
+    margin-bottom: 0;
+    margin-right: 10px;
+  }
+  
+  .rating-label {
+    font-size: 14px;
+  }
+}
+</style>
+{% endblock %}

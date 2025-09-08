@@ -1,0 +1,308 @@
+{% extends 'base.html' %}
+{% block title %}Feedback Analytics - Noble Quest{% endblock %}
+{% block content %}
+  <div class="welcome-section">
+    <div class="d-flex justify-content-between align-items-center">
+      <div>
+        <h1 class="welcome-title">Feedback Analytics</h1>
+        <p class="welcome-subtitle">Analyze event feedback and improve your events</p>
+      </div>
+    </div>
+  </div>
+
+  {% if event_analytics %}
+    <div class="row">
+      {% for analytics in event_analytics %}
+        <div class="col-12 mb-4">
+          <div class="card">
+            <div class="card-header">
+              <div class="d-flex justify-content-between align-items-center">
+                <div>
+                  <h5 class="mb-1">
+                    <i class="fas fa-chart-bar mr-2"></i>{{ analytics.event.name }}
+                  </h5>
+                  <small class="text-muted">
+                    {{ analytics.event.start_date.strftime('%B %d, %Y') }} • 
+                    {{ analytics.feedback_count }} feedback{{ 's' if analytics.feedback_count != 1 else '' }}
+                  </small>
+                </div>
+                <div class="text-right">
+                  <span class="badge badge-primary badge-lg">{{ analytics.avg_overall }}/5.0</span>
+                  <small class="d-block text-muted">Overall Rating</small>
+                </div>
+              </div>
+            </div>
+            <div class="card-body">
+              <div class="row">
+                <!-- Charts Column -->
+                <div class="col-md-8">
+                  <div class="row">
+                    <!-- Overall Rating Chart -->
+                    <div class="col-md-6 mb-3">
+                      <div class="chart-container">
+                        <h6 class="chart-title">
+                          <i class="fas fa-star mr-1"></i>Overall Rating
+                        </h6>
+                        <div class="rating-bar">
+                          <div class="rating-fill" style="width: {{ (analytics.avg_overall / 5) * 100 }}%"></div>
+                          <span class="rating-value">{{ analytics.avg_overall }}/5.0</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- Content Quality Chart -->
+                    <div class="col-md-6 mb-3">
+                      <div class="chart-container">
+                        <h6 class="chart-title">
+                          <i class="fas fa-book mr-1"></i>Content Quality
+                        </h6>
+                        <div class="rating-bar">
+                          <div class="rating-fill" style="width: {{ (analytics.avg_content / 5) * 100 }}%"></div>
+                          <span class="rating-value">{{ analytics.avg_content }}/5.0</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- Organization Chart -->
+                    <div class="col-md-6 mb-3">
+                      <div class="chart-container">
+                        <h6 class="chart-title">
+                          <i class="fas fa-tasks mr-1"></i>Organization
+                        </h6>
+                        <div class="rating-bar">
+                          <div class="rating-fill" style="width: {{ (analytics.avg_organization / 5) * 100 }}%"></div>
+                          <span class="rating-value">{{ analytics.avg_organization }}/5.0</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- Venue Rating Chart -->
+                    <div class="col-md-6 mb-3">
+                      <div class="chart-container">
+                        <h6 class="chart-title">
+                          <i class="fas fa-map-marker-alt mr-1"></i>Venue Quality
+                        </h6>
+                        <div class="rating-bar">
+                          <div class="rating-fill" style="width: {{ (analytics.avg_venue / 5) * 100 }}%"></div>
+                          <span class="rating-value">{{ analytics.avg_venue }}/5.0</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- Value for Money Chart -->
+                    <div class="col-md-6 mb-3">
+                      <div class="chart-container">
+                        <h6 class="chart-title">
+                          <i class="fas fa-dollar-sign mr-1"></i>Value for Money
+                        </h6>
+                        <div class="rating-bar">
+                          <div class="rating-fill" style="width: {{ (analytics.avg_value / 5) * 100 }}%"></div>
+                          <span class="rating-value">{{ analytics.avg_value }}/5.0</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- Likelihood to Recommend Chart -->
+                    <div class="col-md-6 mb-3">
+                      <div class="chart-container">
+                        <h6 class="chart-title">
+                          <i class="fas fa-thumbs-up mr-1"></i>Likelihood to Recommend
+                        </h6>
+                        <div class="rating-bar">
+                          <div class="rating-fill" style="width: {{ (analytics.avg_recommend / 5) * 100 }}%"></div>
+                          <span class="rating-value">{{ analytics.avg_recommend }}/5.0</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Comments Column -->
+                <div class="col-md-4">
+                  <div class="comments-section">
+                    <h6 class="comments-title">
+                      <i class="fas fa-comments mr-2"></i>Additional Comments
+                      <span class="badge badge-secondary ml-2">{{ analytics.comments|length }}</span>
+                    </h6>
+                    
+                    {% if analytics.comments %}
+                      <div class="comments-container">
+                        {% for comment in analytics.comments %}
+                          <div class="comment-item">
+                            <div class="comment-text">
+                              "{{ comment }}"
+                            </div>
+                          </div>
+                        {% endfor %}
+                      </div>
+                    {% else %}
+                      <div class="no-comments">
+                        <i class="fas fa-comment-slash text-muted"></i>
+                        <p class="text-muted">No additional comments provided</p>
+                      </div>
+                    {% endif %}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="text-center py-5">
+      <div class="empty-state">
+        <i class="fas fa-chart-bar fa-3x text-muted mb-3"></i>
+        <h4>No Feedback Data Available</h4>
+        <p class="text-muted">No events have received feedback yet. Encourage attendees to provide feedback after events.</p>
+        <a href="{{ url_for('dashboard') }}" class="btn btn-primary">
+          <i class="fas fa-arrow-left mr-2"></i>Back to Dashboard
+        </a>
+      </div>
+    </div>
+  {% endif %}
+{% endblock %}
+
+{% block scripts %}
+<style>
+.chart-container {
+  background-color: var(--dark-card);
+  border: 1px solid var(--dark-border);
+  border-radius: 12px;
+  padding: 20px;
+  height: 100%;
+}
+
+.chart-title {
+  color: var(--dark-text);
+  font-weight: 600;
+  margin-bottom: 15px;
+  font-size: 14px;
+}
+
+.rating-bar {
+  position: relative;
+  background-color: var(--dark-bg);
+  border-radius: 20px;
+  height: 30px;
+  overflow: hidden;
+  border: 1px solid var(--dark-border);
+}
+
+.rating-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #ff6b6b, #ffa500, #ffeb3b, #4caf50, #2196f3);
+  border-radius: 20px;
+  transition: width 0.8s ease;
+  position: relative;
+}
+
+.rating-value {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: white;
+  font-weight: bold;
+  font-size: 12px;
+  text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+}
+
+.comments-section {
+  background-color: var(--dark-card);
+  border: 1px solid var(--dark-border);
+  border-radius: 12px;
+  padding: 20px;
+  height: 100%;
+}
+
+.comments-title {
+  color: var(--dark-text);
+  font-weight: 600;
+  margin-bottom: 15px;
+  font-size: 14px;
+}
+
+.comments-container {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.comment-item {
+  background-color: var(--dark-bg);
+  border: 1px solid var(--dark-border);
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 10px;
+}
+
+.comment-text {
+  color: var(--dark-text);
+  font-style: italic;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.no-comments {
+  text-align: center;
+  padding: 40px 20px;
+}
+
+.no-comments i {
+  font-size: 2rem;
+  margin-bottom: 10px;
+}
+
+.empty-state {
+  padding: 60px 20px;
+}
+
+.empty-state i {
+  font-size: 4rem;
+  margin-bottom: 20px;
+}
+
+.badge-lg {
+  font-size: 1.1rem;
+  padding: 8px 12px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .chart-container {
+    margin-bottom: 20px;
+  }
+  
+  .comments-section {
+    margin-top: 20px;
+  }
+  
+  .rating-bar {
+    height: 25px;
+  }
+  
+  .rating-value {
+    font-size: 11px;
+  }
+}
+
+/* Custom scrollbar for comments */
+.comments-container::-webkit-scrollbar {
+  width: 6px;
+}
+
+.comments-container::-webkit-scrollbar-track {
+  background: var(--dark-bg);
+  border-radius: 3px;
+}
+
+.comments-container::-webkit-scrollbar-thumb {
+  background: var(--primary-color);
+  border-radius: 3px;
+}
+
+.comments-container::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-color);
+}
+</style>
+{% endblock %}

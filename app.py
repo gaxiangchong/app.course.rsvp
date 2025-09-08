@@ -18,14 +18,16 @@ import base64
 import io
 import os
 import uuid
+import shutil
 from datetime import datetime, timedelta
+from werkzeug.utils import secure_filename
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 import smtplib
 import re
 
 from flask import (Flask, flash, redirect, render_template, request, session,
-                   url_for, jsonify)
+                   url_for, jsonify, send_from_directory)
 from flask_login import (LoginManager, UserMixin, current_user, login_required,
                          login_user, logout_user)
 from flask_sqlalchemy import SQLAlchemy
@@ -33,6 +35,7 @@ from werkzeug.security import check_password_hash, generate_password_hash
 from dotenv import load_dotenv
 
 import qrcode
+import stripe
 
 # Load environment variables
 try:
@@ -53,10 +56,81 @@ app.config['MAIL_USE_TLS'] = os.getenv('MAIL_USE_TLS', 'True').lower() == 'true'
 app.config['MAIL_USERNAME'] = os.getenv('MAIL_USERNAME')
 app.config['MAIL_PASSWORD'] = os.getenv('MAIL_PASSWORD')
 
+# File upload configuration
+app.config['UPLOAD_FOLDER'] = 'static/uploads/events'
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
+
+# Stripe configuration
+app.config['STRIPE_PUBLISHABLE_KEY'] = os.getenv('STRIPE_PUBLISHABLE_KEY')
+app.config['STRIPE_SECRET_KEY'] = os.getenv('STRIPE_SECRET_KEY')
+app.config['STRIPE_WEBHOOK_SECRET'] = os.getenv('STRIPE_WEBHOOK_SECRET')
+
+# Default Currency and Country Configuration
+app.config['DEFAULT_CURRENCY'] = 'SGD'
+app.config['DEFAULT_COUNTRY'] = 'Singapore'
+
+# Superuser Configuration
+app.config['SUPERUSER_PASSWORD'] = os.getenv('SUPERUSER_PASSWORD', 'TXGF#813193')
+
 db = SQLAlchemy(app)
 
 login_manager = LoginManager(app)
 login_manager.login_view = 'login'
+
+# Initialize Stripe
+stripe.api_key = app.config['STRIPE_SECRET_KEY']
+
+# Make helper functions and config available to templates
+@app.context_processor
+def inject_helpers():
+    return {
+        'get_membership_grade_info': get_membership_grade_info,
+        'get_currency_info': get_currency_info,
+        'stripe_publishable_key': app.config.get('STRIPE_PUBLISHABLE_KEY', ''),
+        'default_currency': app.config.get('DEFAULT_CURRENCY', 'SGD'),
+        'default_country': app.config.get('DEFAULT_COUNTRY', 'Singapore')
+    }
+
+# Membership grade configuration
+MEMBERSHIP_GRADES = {
+    'Pending Review': {
+        'name': 'Pending Review',
+        'icon': 'fas fa-clock',
+        'color': '#ffc107',
+        'description': 'Membership under review'
+    },
+    'Classic': {
+        'name': 'Classic',
+        'icon': 'fas fa-star',
+        'color': '#6c757d',
+        'description': 'Basic membership'
+    },
+    'Silver': {
+        'name': 'Silver',
+        'icon': 'fas fa-medal',
+        'color': '#c0c0c0',
+        'description': 'Silver membership'
+    },
+    'Gold': {
+        'name': 'Gold',
+        'icon': 'fas fa-trophy',
+        'color': '#ffd700',
+        'description': 'Gold membership'
+    },
+    'Platinum': {
+        'name': 'Platinum',
+        'icon': 'fas fa-crown',
+        'color': '#e5e4e2',
+        'description': 'Platinum membership'
+    },
+    'Diamond': {
+        'name': 'Diamond',
+        'icon': 'fas fa-gem',
+        'color': '#b9f2ff',
+        'description': 'Diamond membership'
+    }
+}
 
 
 class User(UserMixin, db.Model):
@@ -108,6 +182,12 @@ class User(UserMixin, db.Model):
     privacy_show_full_name = db.Column(db.Boolean, default=True)
     account_status = db.Column(db.String(20), default='active')
     email_verified = db.Column(db.Boolean, default=False)
+    email_verification_token = db.Column(db.String(100), nullable=True)
+    email_verification_sent_at = db.Column(db.DateTime, nullable=True)
+    password_reset_token = db.Column(db.String(100), nullable=True)
+    password_reset_sent_at = db.Column(db.DateTime, nullable=True)
+    membership_grade = db.Column(db.String(20), default='Pending Review')  # Classic, Silver, Gold, Platinum, Diamond
+    credit_point = db.Column(db.Float, default=0.0)  # Credit points for event payments
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     events = db.relationship('Event', backref='creator', lazy=True)
@@ -124,6 +204,48 @@ class User(UserMixin, db.Model):
         """Validate email format."""
         pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
         return re.match(pattern, self.email) is not None
+
+    def generate_verification_token(self) -> str:
+        """Generate a unique verification token."""
+        import secrets
+        self.email_verification_token = secrets.token_urlsafe(32)
+        self.email_verification_sent_at = datetime.utcnow()
+        return self.email_verification_token
+
+    def verify_email(self, token: str) -> bool:
+        """Verify email with token."""
+        if self.email_verified:
+            return True
+        if self.email_verification_token == token:
+            self.email_verified = True
+            self.email_verification_token = None
+            self.email_verification_sent_at = None
+            return True
+        return False
+
+    def is_verification_token_expired(self) -> bool:
+        """Check if verification token is expired (24 hours)."""
+        if not self.email_verification_sent_at:
+            return True
+        return datetime.utcnow() - self.email_verification_sent_at > timedelta(hours=24)
+
+    def generate_password_reset_token(self) -> str:
+        """Generate a unique password reset token."""
+        import secrets
+        self.password_reset_token = secrets.token_urlsafe(32)
+        self.password_reset_sent_at = datetime.utcnow()
+        return self.password_reset_token
+
+    def is_password_reset_token_expired(self) -> bool:
+        """Check if password reset token is expired (1 hour)."""
+        if not self.password_reset_sent_at:
+            return True
+        return datetime.utcnow() - self.password_reset_sent_at > timedelta(hours=1)
+
+    def clear_password_reset_token(self) -> None:
+        """Clear password reset token."""
+        self.password_reset_token = None
+        self.password_reset_sent_at = None
 
     @property
     def full_name(self) -> str:
@@ -185,6 +307,7 @@ class Event(db.Model):
     auto_approval = db.Column(db.Boolean, default=True)
     cover_image_url = db.Column(db.String(200), nullable=True)
     tags = db.Column(db.String(200), nullable=True)  # comma-separated
+    price = db.Column(db.Float, default=0.0)  # Event price in USD
     status = db.Column(db.String(20), default='active')  # active/cancelled/completed
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -208,6 +331,11 @@ class Event(db.Model):
     @property
     def declined_count(self) -> int:
         return sum(1 for rsvp in self.rsvps if rsvp.status == 'Declined')
+    
+    @property
+    def is_past(self) -> bool:
+        """Check if the event has already ended."""
+        return self.start_date < datetime.utcnow()
 
     @property
     def waitlist_count(self) -> int:
@@ -263,6 +391,11 @@ class RSVP(db.Model):
     qr_code = db.Column(db.String(64), unique=True, nullable=True)
     checked_in = db.Column(db.Boolean, default=False)
     checked_in_at = db.Column(db.DateTime, nullable=True)
+    payment_status = db.Column(db.String(20), default='pending')  # pending, paid, failed, refunded
+    payment_amount = db.Column(db.Float, default=0.0)  # Amount paid in USD
+    payment_method = db.Column(db.String(20), nullable=True)  # card, credit, free
+    stripe_payment_intent_id = db.Column(db.String(200), nullable=True)  # Stripe payment intent ID
+    receipt_url = db.Column(db.String(500), nullable=True)  # URL to receipt
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -317,18 +450,89 @@ class Notification(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 
+class Feedback(db.Model):
+    """Represents user feedback for an event.
+    
+    Attributes:
+        id (int): primary key.
+        event_id (int): associated event.
+        user_id (int): user who provided feedback.
+        overall_rating (int): overall event rating (1-5 scale).
+        content_quality (int): content quality rating (1-5 scale).
+        organization (int): organization rating (1-5 scale).
+        venue_rating (int): venue rating (1-5 scale).
+        value_for_money (int): value for money rating (1-5 scale).
+        likelihood_to_recommend (int): likelihood to recommend (1-5 scale).
+        additional_comments (str): optional text feedback.
+        created_at (datetime): when feedback was submitted.
+    """
+    
+    id = db.Column(db.Integer, primary_key=True)
+    event_id = db.Column(db.Integer, db.ForeignKey('event.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    
+    # Rating questions (1-5 scale)
+    overall_rating = db.Column(db.Integer, nullable=False)
+    content_quality = db.Column(db.Integer, nullable=False)
+    organization = db.Column(db.Integer, nullable=False)
+    venue_rating = db.Column(db.Integer, nullable=False)
+    value_for_money = db.Column(db.Integer, nullable=False)
+    likelihood_to_recommend = db.Column(db.Integer, nullable=False)
+    
+    # Optional text feedback
+    additional_comments = db.Column(db.Text, nullable=True)
+    
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Relationships
+    event = db.relationship('Event', backref='feedbacks', lazy=True)
+    user = db.relationship('User', backref='feedbacks', lazy=True)
+
+
 @login_manager.user_loader
 def load_user(user_id):
     return User.query.get(int(user_id))
 
 
+def allowed_file(filename):
+    """Check if file extension is allowed."""
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+
+def save_uploaded_file(file):
+    """Save uploaded file and return the filename."""
+    if file and allowed_file(file.filename):
+        # Create upload directory if it doesn't exist
+        os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+        
+        # Generate unique filename
+        filename = secure_filename(file.filename)
+        name, ext = os.path.splitext(filename)
+        unique_filename = f"{uuid.uuid4()}{ext}"
+        
+        # Save file
+        file_path = os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)
+        file.save(file_path)
+        
+        return f"/static/uploads/events/{unique_filename}"
+    return None
+
+
 def send_email(to_email, subject, body, html_body=None):
     """Send email notification."""
+    # Check if email is configured
     if not app.config['MAIL_USERNAME'] or not app.config['MAIL_PASSWORD']:
-        print(f"Email not configured. Would send to {to_email}: {subject}")
+        print(f"❌ Email not configured. Missing MAIL_USERNAME or MAIL_PASSWORD")
+        print(f"   Would send to {to_email}: {subject}")
+        print(f"   Please create a .env file with email configuration")
         return False
     
     try:
+        print(f"📧 Attempting to send email to {to_email}...")
+        print(f"   Server: {app.config['MAIL_SERVER']}:{app.config['MAIL_PORT']}")
+        print(f"   Username: {app.config['MAIL_USERNAME']}")
+        
         msg = MIMEMultipart('alternative')
         msg['Subject'] = subject
         msg['From'] = app.config['MAIL_USERNAME']
@@ -348,10 +552,213 @@ def send_email(to_email, subject, body, html_body=None):
         server.login(app.config['MAIL_USERNAME'], app.config['MAIL_PASSWORD'])
         server.send_message(msg)
         server.quit()
+        print(f"✅ Email sent successfully to {to_email}")
         return True
-    except Exception as e:
-        print(f"Failed to send email: {e}")
+    except smtplib.SMTPAuthenticationError as e:
+        print(f"❌ SMTP Authentication failed: {e}")
+        print(f"   Check your email credentials in .env file")
         return False
+    except smtplib.SMTPRecipientsRefused as e:
+        print(f"❌ Recipient refused: {e}")
+        return False
+    except smtplib.SMTPServerDisconnected as e:
+        print(f"❌ SMTP Server disconnected: {e}")
+        return False
+    except Exception as e:
+        print(f"❌ Failed to send email: {e}")
+        print(f"   Error type: {type(e).__name__}")
+        return False
+
+
+def send_verification_email(user):
+    """Send email verification link to user."""
+    token = user.generate_verification_token()
+    db.session.commit()
+    
+    verification_url = url_for('verify_email', token=token, _external=True)
+    
+    subject = "Verify Your Email Address - EventApp"
+    
+    text_body = f"""Hello {user.username},
+
+Thank you for registering with EventApp! To complete your registration and start using your account, please verify your email address by clicking the link below:
+
+{verification_url}
+
+This link will expire in 24 hours for security reasons.
+
+If you didn't create an account with EventApp, please ignore this email.
+
+Best regards,
+EventApp Team"""
+
+    html_body = f"""
+    <html>
+    <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+        <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+            <h2 style="color: #007bff;">Welcome to EventApp!</h2>
+            <p>Hello {user.username},</p>
+            <p>Thank you for registering with EventApp! To complete your registration and start using your account, please verify your email address by clicking the button below:</p>
+            
+            <div style="text-align: center; margin: 30px 0;">
+                <a href="{verification_url}" 
+                   style="background-color: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block;">
+                    Verify Email Address
+                </a>
+            </div>
+            
+            <p>Or copy and paste this link into your browser:</p>
+            <p style="word-break: break-all; background-color: #f8f9fa; padding: 10px; border-radius: 3px;">
+                {verification_url}
+            </p>
+            
+            <p><strong>Important:</strong> This link will expire in 24 hours for security reasons.</p>
+            
+            <p>If you didn't create an account with EventApp, please ignore this email.</p>
+            
+            <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
+            <p style="color: #666; font-size: 14px;">
+                Best regards,<br>
+                EventApp Team
+            </p>
+        </div>
+    </body>
+    </html>
+    """
+    
+    return send_email(user.email, subject, text_body, html_body)
+
+
+def send_password_reset_email(user):
+    """Send password reset link to user."""
+    token = user.generate_password_reset_token()
+    db.session.commit()
+    
+    reset_url = url_for('reset_password', token=token, _external=True)
+    
+    subject = "Reset Your Password - EventApp"
+    
+    text_body = f"""Hello {user.username},
+
+You requested to reset your password for your EventApp account. To reset your password, please click the link below:
+
+{reset_url}
+
+This link will expire in 1 hour for security reasons.
+
+If you didn't request a password reset, please ignore this email. Your password will remain unchanged.
+
+Best regards,
+EventApp Team"""
+
+    html_body = f"""
+    <html>
+    <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+        <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+            <h2 style="color: #dc3545;">Password Reset Request</h2>
+            <p>Hello {user.username},</p>
+            <p>You requested to reset your password for your EventApp account. To reset your password, please click the button below:</p>
+            
+            <div style="text-align: center; margin: 30px 0;">
+                <a href="{reset_url}" 
+                   style="background-color: #dc3545; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block;">
+                    Reset Password
+                </a>
+            </div>
+            
+            <p>Or copy and paste this link into your browser:</p>
+            <p style="word-break: break-all; background-color: #f8f9fa; padding: 10px; border-radius: 3px;">
+                {reset_url}
+            </p>
+            
+            <p><strong>Important:</strong> This link will expire in 1 hour for security reasons.</p>
+            
+            <p>If you didn't request a password reset, please ignore this email. Your password will remain unchanged.</p>
+            
+            <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
+            <p style="color: #666; font-size: 14px;">
+                Best regards,<br>
+                EventApp Team
+            </p>
+        </div>
+    </body>
+    </html>
+    """
+    
+    return send_email(user.email, subject, text_body, html_body)
+
+
+def get_membership_grade_info(grade):
+    """Get membership grade information."""
+    return MEMBERSHIP_GRADES.get(grade, MEMBERSHIP_GRADES['Classic'])
+
+def get_currency_info(country='Singapore'):
+    """Get currency information based on country."""
+    currencies = {
+        'Singapore': {
+            'code': 'SGD',
+            'symbol': 'S$',
+            'name': 'Singapore Dollar',
+            'phone_prefix': '+65',
+            'phone_placeholder': '+65 9123 4567'
+        },
+        'Malaysia': {
+            'code': 'MYR',
+            'symbol': 'RM',
+            'name': 'Malaysian Ringgit',
+            'phone_prefix': '+60',
+            'phone_placeholder': '+60 12-345 6789'
+        }
+    }
+    return currencies.get(country, currencies['Singapore'])
+
+
+def validate_superuser_password(password):
+    """Validate superuser password."""
+    return password == app.config['SUPERUSER_PASSWORD']
+
+
+def create_stripe_payment_intent(amount, currency='sgd', metadata=None):
+    """Create a Stripe payment intent."""
+    try:
+        intent = stripe.PaymentIntent.create(
+            amount=int(amount * 100),  # Convert to cents
+            currency=currency,
+            metadata=metadata or {}
+        )
+        return intent
+    except stripe.error.StripeError as e:
+        print(f"Stripe error: {e}")
+        return None
+
+
+def create_stripe_checkout_session(amount, event_name, rsvp_id, success_url, cancel_url, currency='sgd'):
+    """Create a Stripe checkout session."""
+    try:
+        session = stripe.checkout.Session.create(
+            payment_method_types=['card'],
+            line_items=[{
+                'price_data': {
+                    'currency': currency,
+                    'product_data': {
+                        'name': f'Event: {event_name}',
+                    },
+                    'unit_amount': int(amount * 100),  # Convert to cents
+                },
+                'quantity': 1,
+            }],
+            mode='payment',
+            success_url=success_url,
+            cancel_url=cancel_url,
+            metadata={
+                'rsvp_id': str(rsvp_id),
+                'event_name': event_name
+            }
+        )
+        return session
+    except stripe.error.StripeError as e:
+        print(f"Stripe error: {e}")
+        return None
 
 
 def create_notification(user_id, notification_type, title, message, payload=None):
@@ -438,6 +845,35 @@ Your QR code for check-in is available at: {request.url_root}event/{event.id}
 
 Best regards,
 EventApp Team"""
+        elif notification_type == 'event_cancelled':
+            subject = f"Event Cancelled: {event.name}"
+            body = f"""Hello {attendee.display_name},
+
+We regret to inform you that the event "{event.name}" has been cancelled.
+
+Event Details:
+Date: {event.start_date.strftime('%Y-%m-%d %H:%M')}
+Location: {event.location}
+
+We apologize for any inconvenience this may cause. Please check our other upcoming events.
+
+Best regards,
+EventApp Team"""
+        else:
+            # Default case to prevent UnboundLocalError
+            subject = f"Event Notification: {event.name}"
+            body = f"""Hello {attendee.display_name},
+
+This is a notification regarding the event "{event.name}".
+
+Event Details:
+Date: {event.start_date.strftime('%Y-%m-%d %H:%M')}
+Location: {event.location}
+
+Please visit: {request.url_root}event/{event.id}
+
+Best regards,
+EventApp Team"""
         
         send_email(attendee.email, subject, body)
         
@@ -473,89 +909,33 @@ def create_tables():
     db.create_all()
     
     # Add sample events with cover images if no events exist
-    if Event.query.count() == 0:
-        sample_events = [
-            {
-                'name': 'Tech Conference 2024',
-                'description': 'Join us for the biggest technology conference of the year. Learn about the latest trends in AI, cloud computing, and software development.',
-                'start_date': datetime(2024, 10, 15, 9, 0),
-                'end_date': datetime(2024, 10, 15, 17, 0),
-                'location': 'Convention Center, Downtown',
-                'city': 'New York',
-                'capacity': 500,
-                'cover_image_url': '/static/images/events/conference.jpg'
-            },
-            {
-                'name': 'Design Workshop',
-                'description': 'Hands-on workshop covering modern design principles, user experience, and creative thinking techniques.',
-                'start_date': datetime(2024, 10, 20, 10, 0),
-                'end_date': datetime(2024, 10, 20, 16, 0),
-                'location': 'Creative Studio, Arts District',
-                'city': 'San Francisco',
-                'capacity': 30,
-                'cover_image_url': '/static/images/events/workshop.jpg'
-            },
-            {
-                'name': 'Business Networking Event',
-                'description': 'Connect with industry leaders, entrepreneurs, and professionals. Great opportunity to expand your network.',
-                'start_date': datetime(2024, 10, 25, 18, 0),
-                'end_date': datetime(2024, 10, 25, 21, 0),
-                'location': 'Grand Hotel Ballroom',
-                'city': 'Chicago',
-                'capacity': 200,
-                'cover_image_url': '/static/images/events/networking.jpg'
-            },
-            {
-                'name': 'Product Training Session',
-                'description': 'Comprehensive training on our latest product features. Perfect for new team members and existing users.',
-                'start_date': datetime(2024, 11, 5, 9, 0),
-                'end_date': datetime(2024, 11, 5, 12, 0),
-                'location': 'Training Center, Office Building',
-                'city': 'Austin',
-                'capacity': 50,
-                'cover_image_url': '/static/images/events/training.jpg'
-            },
-            {
-                'name': 'Annual Company Party',
-                'description': 'Celebrate another successful year with food, drinks, music, and great company. All employees and families welcome!',
-                'start_date': datetime(2024, 12, 15, 19, 0),
-                'end_date': datetime(2024, 12, 15, 23, 0),
-                'location': 'Rooftop Garden, Main Office',
-                'city': 'Seattle',
-                'capacity': 150,
-                'cover_image_url': '/static/images/events/party.jpg'
-            }
-        ]
-        
-        # Get the first admin user to be the creator
-        admin_user = User.query.filter_by(is_admin=True).first()
-        if admin_user:
-            for event_data in sample_events:
-                event = Event(
-                    name=event_data['name'],
-                    description=event_data['description'],
-                    start_date=event_data['start_date'],
-                    end_date=event_data['end_date'],
-                    location=event_data['location'],
-                    city=event_data['city'],
-                    capacity=event_data['capacity'],
-                    cover_image_url=event_data['cover_image_url'],
-                    creator=admin_user
-                )
-                db.session.add(event)
-        
-        db.session.commit()
-        print("Sample events with cover images created!")
+    # Temporarily commented out to avoid database query during import
+    # Will be re-enabled after database migration
+    pass
 
 # Create tables when app starts
 with app.app_context():
     create_tables()
 
 
+@app.before_request
+def check_email_verification():
+    """Check if logged-in user has verified their email."""
+    # Skip email verification check for now
+    # if current_user.is_authenticated and not current_user.email_verified:
+    #     # Allow access to verification-related routes
+    #     if request.endpoint in ['verify_email', 'resend_verification', 'logout']:
+    #         return
+    #     # Redirect to verification page for other routes
+    #     flash('Please verify your email address to continue using your account.', 'warning')
+    #     return redirect(url_for('resend_verification'))
+    pass
+
+
 @app.route('/')
 def index():
     """Home page showing upcoming events."""
-    events = Event.query.order_by(Event.start_date.asc()).all()
+    events = Event.query.filter(Event.status != 'cancelled').order_by(Event.start_date.asc()).all()
     return render_template('index.html', events=events)
 
 
@@ -591,12 +971,16 @@ def register():
             flash('Email already registered.', 'danger')
             return redirect(url_for('register'))
         
-        user = User(username=username, email=email)
+        user = User(username=username, email=email, country='Singapore')
         user.set_password(password)
         db.session.add(user)
         db.session.commit()
-        flash('Registration successful. Please log in.', 'success')
-        return redirect(url_for('login'))
+        
+        # Skip email verification for now
+        user.email_verified = True
+        flash('Registration successful! You can now log in.', 'success')
+        
+        return redirect(url_for('resend_verification'))
     return render_template('register.html')
 
 
@@ -609,6 +993,11 @@ def login():
         password = request.form.get('password')
         user = User.query.filter_by(email=email).first()
         if user and user.check_password(password):
+            # Skip email verification check for now
+            # if not user.email_verified:
+            #     flash('Please verify your email address before logging in. Check your inbox for a verification link.', 'warning')
+            #     return redirect(url_for('resend_verification'))
+            
             login_user(user)
             flash('Logged in successfully.', 'success')
             next_page = request.args.get('next')
@@ -625,6 +1014,126 @@ def logout():
     return redirect(url_for('index'))
 
 
+@app.route('/verify-email/<token>')
+def verify_email(token):
+    """Verify user email with token."""
+    user = User.query.filter_by(email_verification_token=token).first()
+    
+    if not user:
+        flash('Invalid or expired verification link.', 'danger')
+        return redirect(url_for('index'))
+    
+    if user.is_verification_token_expired():
+        flash('Verification link has expired. Please request a new one.', 'danger')
+        return redirect(url_for('resend_verification'))
+    
+    if user.verify_email(token):
+        db.session.commit()
+        flash('Email verified successfully! You can now use your account.', 'success')
+        return redirect(url_for('login'))
+    else:
+        flash('Email verification failed.', 'danger')
+        return redirect(url_for('index'))
+
+
+@app.route('/resend-verification', methods=['GET', 'POST'])
+def resend_verification():
+    """Resend email verification."""
+    if request.method == 'POST':
+        email = request.form.get('email', '').strip().lower()
+        
+        if not email:
+            flash('Email is required.', 'danger')
+            return render_template('resend_verification.html')
+        
+        user = User.query.filter_by(email=email).first()
+        
+        if not user:
+            flash('No account found with that email address.', 'danger')
+            return render_template('resend_verification.html')
+        
+        if user.email_verified:
+            flash('Email is already verified. You can log in.', 'info')
+            return redirect(url_for('login'))
+        
+        # Skip email verification for now
+        user.email_verified = True
+        flash('Account is now verified! You can log in.', 'success')
+        
+        return render_template('resend_verification.html')
+    
+    return render_template('resend_verification.html')
+
+
+@app.route('/forgot-password', methods=['GET', 'POST'])
+def forgot_password():
+    """Handle forgot password requests."""
+    if current_user.is_authenticated:
+        return redirect(url_for('index'))
+    
+    if request.method == 'POST':
+        email = request.form.get('email', '').strip().lower()
+        
+        if not email:
+            flash('Email is required.', 'danger')
+            return render_template('forgot_password.html')
+        
+        user = User.query.filter_by(email=email).first()
+        
+        # Always show success message for security (don't reveal if email exists)
+        if user:
+            if send_password_reset_email(user):
+                flash('If an account with that email exists, a password reset link has been sent.', 'success')
+            else:
+                flash('Failed to send password reset email. Please check your email configuration or try again later.', 'danger')
+        else:
+            flash('If an account with that email exists, a password reset link has been sent.', 'success')
+        
+        return render_template('forgot_password.html')
+    
+    return render_template('forgot_password.html')
+
+
+@app.route('/reset-password/<token>', methods=['GET', 'POST'])
+def reset_password(token):
+    """Handle password reset with token."""
+    if current_user.is_authenticated:
+        return redirect(url_for('index'))
+    
+    user = User.query.filter_by(password_reset_token=token).first()
+    
+    if not user:
+        flash('Invalid or expired password reset link.', 'danger')
+        return redirect(url_for('forgot_password'))
+    
+    if user.is_password_reset_token_expired():
+        flash('Password reset link has expired. Please request a new one.', 'danger')
+        return redirect(url_for('forgot_password'))
+    
+    if request.method == 'POST':
+        password = request.form.get('password')
+        confirm_password = request.form.get('confirm_password')
+        
+        # Validation
+        if not password or len(password) < 6:
+            flash('Password must be at least 6 characters long.', 'danger')
+            return render_template('reset_password.html', token=token)
+        
+        if password != confirm_password:
+            flash('Passwords do not match.', 'danger')
+            return render_template('reset_password.html', token=token)
+        
+        # Update password
+        user.set_password(password)
+        user.clear_password_reset_token()
+        db.session.commit()
+        
+        flash('Password reset successfully! You can now log in with your new password.', 'success')
+        return redirect(url_for('login'))
+    
+    return render_template('reset_password.html', token=token)
+
+
 @app.route('/event/new', methods=['GET', 'POST'])
 @login_required
 def create_event():
@@ -637,19 +1146,55 @@ def create_event():
         description = request.form.get('description')
         date_str = request.form.get('date')  # format: YYYY-MM-DD
         time_str = request.form.get('time')  # format: HH:MM
+        end_time_str = request.form.get('end_time')  # format: HH:MM
         location = request.form.get('location')
         capacity = request.form.get('capacity')
+        price = request.form.get('price', 0)  # Event price
         rsvp_deadline_str = request.form.get('rsvp_deadline')  # optional
+        
+        # Handle image upload
+        cover_image_url = None
+        if 'cover_image' in request.files:
+            file = request.files['cover_image']
+            if file.filename:  # If file is selected
+                cover_image_url = save_uploaded_file(file)
+                if not cover_image_url:
+                    flash('Invalid file type. Please upload PNG, JPG, JPEG, GIF, or WebP images.', 'danger')
+                    return redirect(url_for('create_event'))
+        
         try:
             event_datetime = datetime.strptime(f"{date_str} {time_str}", '%Y-%m-%d %H:%M')
         except (ValueError, TypeError):
-            flash('Invalid date or time.', 'danger')
+            flash('Invalid start date or time.', 'danger')
             return redirect(url_for('create_event'))
+        
+        # Handle end time
+        end_datetime = None
+        if end_time_str:
+            try:
+                end_datetime = datetime.strptime(f"{date_str} {end_time_str}", '%Y-%m-%d %H:%M')
+                if end_datetime <= event_datetime:
+                    flash('End time must be after start time.', 'danger')
+                    return redirect(url_for('create_event'))
+            except (ValueError, TypeError):
+                flash('Invalid end time.', 'danger')
+                return redirect(url_for('create_event'))
+        
         try:
             capacity_int = int(capacity)
         except (ValueError, TypeError):
             flash('Capacity must be a number.', 'danger')
             return redirect(url_for('create_event'))
+        
+        try:
+            price_float = float(price)
+            if price_float < 0:
+                flash('Price cannot be negative.', 'danger')
+                return redirect(url_for('create_event'))
+        except (ValueError, TypeError):
+            flash('Price must be a valid number.', 'danger')
+            return redirect(url_for('create_event'))
+        
         rsvp_deadline = None
         if rsvp_deadline_str:
             try:
@@ -657,13 +1202,17 @@ def create_event():
             except (ValueError, TypeError):
                 flash('Invalid RSVP deadline.', 'danger')
                 return redirect(url_for('create_event'))
+        
         event = Event(name=name,
                       description=description,
                       start_date=event_datetime,
+                      end_date=end_datetime,
                       location=location,
                       capacity=capacity_int,
+                      price=price_float,
                       creator=current_user,
-                      rsvp_deadline=rsvp_deadline)
+                      rsvp_deadline=rsvp_deadline,
+                      cover_image_url=cover_image_url)
         db.session.add(event)
         db.session.commit()
         
@@ -680,11 +1229,19 @@ def create_event():
 def event_detail(event_id):
     """View event details and handle RSVP responses."""
     event = Event.query.get_or_404(event_id)
+    
+    # Check if event is cancelled
+    if event.status == 'cancelled':
+        flash('This event has been cancelled and is no longer available.', 'warning')
+        return redirect(url_for('index'))
+    
     rsvp = RSVP.query.filter_by(event_id=event.id, user_id=current_user.id).first()
     if request.method == 'POST':
-        # Handle RSVP submission
+        # Handle RSVP submission with integrated payment
         status = request.form.get('status')
         guests = request.form.get('guests') or 0
+        payment_method = request.form.get('payment_method')
+        
         try:
             guests_int = int(guests)
             if guests_int < 0:
@@ -692,31 +1249,70 @@ def event_detail(event_id):
         except ValueError:
             flash('Guests must be a non‑negative integer.', 'danger')
             return redirect(url_for('event_detail', event_id=event.id))
+        
         # Check capacity
         total_attending = event.accepted_count
         new_total = total_attending + (1 + guests_int if status == 'Accepted' else 0)
         if status == 'Accepted' and new_total > event.capacity:
             flash('Event capacity reached. You can no longer accept.', 'danger')
             return redirect(url_for('event_detail', event_id=event.id))
+        
         if rsvp is None:
             rsvp = RSVP(event_id=event.id, user_id=current_user.id)
             db.session.add(rsvp)
+        
         # Update RSVP details
         rsvp.status = status
         rsvp.guests = guests_int
-        # Generate unique QR code if accepted
+        
+        # Handle payment for accepted RSVPs
         if status == 'Accepted':
+            if event.price > 0:
+                if not payment_method:
+                    flash('Please select a payment method for this paid event.', 'danger')
+                    return redirect(url_for('event_detail', event_id=event.id))
+                
+                if payment_method == 'credit':
+                    # Check if user has sufficient credits
+                    if (current_user.credit_point or 0) < event.price:
+                        flash('Insufficient credits. You need {:.2f} more credits.'.format(event.price - (current_user.credit_point or 0)), 'danger')
+                        return redirect(url_for('event_detail', event_id=event.id))
+                    
+                    # Deduct credits and mark as paid
+                    current_user.credit_point = (current_user.credit_point or 0) - event.price
+                    rsvp.payment_status = 'paid'
+                    rsvp.payment_amount = event.price
+                    rsvp.payment_method = 'credit'
+                    flash('Payment successful! Credits deducted from your account.', 'success')
+                
+                elif payment_method == 'card':
+                    # Redirect to Stripe payment
+                    rsvp.payment_method = 'card'
+                    db.session.commit()
+                    return redirect(url_for('create_payment', event_id=event.id))
+            else:
+                # Free event
+                rsvp.payment_status = 'paid'
+                rsvp.payment_amount = 0.0
+                rsvp.payment_method = 'free'
+            
+            # Generate unique QR code if accepted
             if not rsvp.qr_code:
                 code = str(uuid.uuid4())
                 # Ensure uniqueness across RSVPs
                 while RSVP.query.filter_by(qr_code=code).first():
                     code = str(uuid.uuid4())
                 rsvp.qr_code = code
+            
             # Send confirmation email
             send_event_notification(event, 'rsvp_confirmation', current_user)
         else:
-            # clear qr code if not attending
+            # Clear payment and QR code if not attending
             rsvp.qr_code = None
+            rsvp.payment_status = 'pending'
+            rsvp.payment_amount = 0.0
+            rsvp.payment_method = None
+        
         db.session.commit()
         flash('Your RSVP has been updated.', 'success')
         return redirect(url_for('event_detail', event_id=event.id))
@@ -745,6 +1341,7 @@ def verify_qr():
                 attendee = rsvp
             else:
                 rsvp.checked_in = True
+                rsvp.checked_in_at = datetime.utcnow()  # Record check-in timestamp
                 db.session.commit()
                 flash('Check‑in successful.', 'success')
                 attendee = rsvp
@@ -758,15 +1355,18 @@ def dashboard():
     if not current_user.is_admin:
         flash('Only organisers can view the dashboard.', 'danger')
         return redirect(url_for('index'))
-    events = Event.query.filter_by(creator_id=current_user.id).order_by(Event.start_date.desc()).all()
+    events = Event.query.filter_by(creator_id=current_user.id).filter(Event.status != 'cancelled').order_by(Event.start_date.desc()).all()
     return render_template('dashboard.html', events=events)
 
 
 @app.route('/my-events')
 @login_required
 def my_events():
-    """Shows events the user has RSVP’d to."""
-    rsvps = RSVP.query.filter_by(user_id=current_user.id).all()
+    """Shows events the user has RSVP'd to."""
+    rsvps = RSVP.query.join(Event).filter(
+        RSVP.user_id == current_user.id,
+        Event.status != 'cancelled'
+    ).all()
     return render_template('my_events.html', rsvps=rsvps)
 
 
@@ -775,6 +1375,12 @@ def my_events():
 def update_event(event_id):
     """Update an existing event (organiser only)."""
     event = Event.query.get_or_404(event_id)
+    
+    # Check if event is cancelled
+    if event.status == 'cancelled':
+        flash('Cannot update a cancelled event.', 'warning')
+        return redirect(url_for('index'))
+    
     if current_user.id != event.creator_id and not current_user.is_admin:
         flash('You do not have permission to update this event.', 'danger')
         return redirect(url_for('event_detail', event_id=event.id))
@@ -783,19 +1389,56 @@ def update_event(event_id):
         description = request.form.get('description')
         date_str = request.form.get('date')
         time_str = request.form.get('time')
+        end_time_str = request.form.get('end_time')
         location = request.form.get('location')
         capacity = request.form.get('capacity')
+        price = request.form.get('price', 0)  # Event price
         rsvp_deadline_str = request.form.get('rsvp_deadline')
+        
+        # Handle image upload
+        if 'cover_image' in request.files:
+            file = request.files['cover_image']
+            if file.filename:  # If file is selected
+                cover_image_url = save_uploaded_file(file)
+                if not cover_image_url:
+                    flash('Invalid file type. Please upload PNG, JPG, JPEG, GIF, or WebP images.', 'danger')
+                    return redirect(url_for('update_event', event_id=event.id))
+                event.cover_image_url = cover_image_url
+        
         try:
             event_datetime = datetime.strptime(f"{date_str} {time_str}", '%Y-%m-%d %H:%M')
         except (ValueError, TypeError):
-            flash('Invalid date or time.', 'danger')
+            flash('Invalid start date or time.', 'danger')
             return redirect(url_for('update_event', event_id=event.id))
+        
+        # Handle end time
+        end_datetime = None
+        if end_time_str:
+            try:
+                end_datetime = datetime.strptime(f"{date_str} {end_time_str}", '%Y-%m-%d %H:%M')
+                if end_datetime <= event_datetime:
+                    flash('End time must be after start time.', 'danger')
+                    return redirect(url_for('update_event', event_id=event.id))
+            except (ValueError, TypeError):
+                flash('Invalid end time.', 'danger')
+                return redirect(url_for('update_event', event_id=event.id))
+        
         try:
             capacity_int = int(capacity)
         except (ValueError, TypeError):
             flash('Capacity must be a number.', 'danger')
             return redirect(url_for('update_event', event_id=event.id))
+        
+        # Validate and convert price
+        try:
+            price_float = float(price)
+            if price_float < 0:
+                flash('Price cannot be negative.', 'danger')
+                return redirect(url_for('update_event', event_id=event.id))
+        except (ValueError, TypeError):
+            flash('Price must be a valid number.', 'danger')
+            return redirect(url_for('update_event', event_id=event.id))
+        
         rsvp_deadline = None
         if rsvp_deadline_str:
             try:
@@ -803,11 +1446,14 @@ def update_event(event_id):
             except (ValueError, TypeError):
                 flash('Invalid RSVP deadline.', 'danger')
                 return redirect(url_for('update_event', event_id=event.id))
+        
         event.name = name
         event.description = description
-        event.date = event_datetime
+        event.start_date = event_datetime
+        event.end_date = end_datetime
         event.location = location
         event.capacity = capacity_int
+        event.price = price_float
         event.rsvp_deadline = rsvp_deadline
         db.session.commit()
         
@@ -831,7 +1477,6 @@ def profile():
         username = request.form.get('username', '').strip()
         email = request.form.get('email', '').strip().lower()
         phone = request.form.get('phone', '').strip()
-        timezone = request.form.get('timezone', 'UTC')
         country = request.form.get('country', '').strip()
         city = request.form.get('city', '').strip()
         email_notifications = request.form.get('email_notifications') == 'on'
@@ -861,7 +1506,6 @@ def profile():
         current_user.username = username
         current_user.email = email
         current_user.phone = phone
-        current_user.timezone = timezone
         current_user.country = country
         current_user.city = city
         current_user.email_notifications = email_notifications
@@ -903,6 +1547,211 @@ def analytics():
                          recent_events=recent_events)
 
 
+@app.route('/admin/members')
+@login_required
+def admin_members():
+    """Admin member management page."""
+    if not current_user.is_admin:
+        flash('Access denied. Admin privileges required.', 'danger')
+        return redirect(url_for('index'))
+    
+    # Get all users with their details
+    members = User.query.all()
+    
+    # Get membership grade statistics
+    grade_stats = {}
+    for grade in MEMBERSHIP_GRADES.keys():
+        grade_stats[grade] = len([m for m in members if m.membership_grade == grade])
+    
+    return render_template('admin_members.html', members=members, grade_stats=grade_stats)
+
+
+@app.route('/admin/members/<int:user_id>/update_grade', methods=['POST'])
+@login_required
+def update_member_grade(user_id):
+    """Update a member's grade (admin only)."""
+    if not current_user.is_admin:
+        flash('Access denied. Admin privileges required.', 'danger')
+        return redirect(url_for('index'))
+    
+    user = User.query.get_or_404(user_id)
+    new_grade = request.form.get('membership_grade')
+    
+    if new_grade not in MEMBERSHIP_GRADES:
+        flash('Invalid membership grade.', 'danger')
+        return redirect(url_for('admin_members'))
+    
+    old_grade = user.membership_grade
+    user.membership_grade = new_grade
+    db.session.commit()
+    
+    flash(f'Updated {user.username}\'s membership grade from {old_grade} to {new_grade}.', 'success')
+    return redirect(url_for('admin_members'))
+
+
+@app.route('/admin/validate-superuser', methods=['POST'])
+@login_required
+def validate_superuser():
+    """Validate superuser password for sensitive operations."""
+    if not current_user.is_admin:
+        return jsonify({'success': False, 'error': 'Admin privileges required'})
+    
+    password = request.form.get('password')
+    action = request.form.get('action')
+    member_id = request.form.get('member_id')
+    
+    if not validate_superuser_password(password):
+        return jsonify({'success': False, 'error': 'Invalid superuser password'})
+    
+    # If it's an edit action, process the form data
+    if action == 'edit_member' and member_id:
+        form_data = request.form.get('form_data')
+        if form_data:
+            # Parse form data and update user
+            user = User.query.get_or_404(int(member_id))
+            
+            # Parse the form data
+            from urllib.parse import parse_qs
+            parsed_data = parse_qs(form_data)
+            
+            # Update user fields
+            user.username = parsed_data.get('username', [user.username])[0]
+            user.email = parsed_data.get('email', [user.email])[0]
+            user.first_name = parsed_data.get('first_name', [user.first_name])[0] or None
+            user.last_name = parsed_data.get('last_name', [user.last_name])[0] or None
+            user.phone = parsed_data.get('phone', [user.phone])[0] or None
+            user.country = parsed_data.get('country', [user.country])[0] or None
+            user.city = parsed_data.get('city', [user.city])[0] or None
+            user.membership_grade = parsed_data.get('membership_grade', [user.membership_grade])[0]
+            user.account_status = parsed_data.get('account_status', [user.account_status])[0]
+            user.is_admin = 'is_admin' in parsed_data
+            user.email_verified = 'email_verified' in parsed_data
+            
+            # Update credit points
+            credit_point = parsed_data.get('credit_point', [None])[0]
+            if credit_point is not None:
+                try:
+                    user.credit_point = float(credit_point)
+                    if user.credit_point < 0:
+                        user.credit_point = 0.0
+                except (ValueError, TypeError):
+                    # Keep existing credit_point if invalid
+                    pass
+            
+            db.session.commit()
+            
+            return jsonify({'success': True, 'message': 'Member updated successfully'})
+    
+    return jsonify({'success': True})
+
+
+@app.route('/admin/members/<int:user_id>/update', methods=['POST'])
+@login_required
+def update_member(user_id):
+    """Update member details (admin only with superuser password)."""
+    if not current_user.is_admin:
+        flash('Access denied. Admin privileges required.', 'danger')
+        return redirect(url_for('index'))
+    
+    user = User.query.get_or_404(user_id)
+    superuser_password = request.form.get('superuser_password')
+    
+    if not validate_superuser_password(superuser_password):
+        flash('Invalid superuser password.', 'danger')
+        return redirect(url_for('admin_members'))
+    
+    # Update user fields
+    user.username = request.form.get('username', user.username)
+    user.email = request.form.get('email', user.email)
+    user.first_name = request.form.get('first_name') or None
+    user.last_name = request.form.get('last_name') or None
+    user.phone = request.form.get('phone') or None
+    user.country = request.form.get('country') or None
+    user.city = request.form.get('city') or None
+    user.membership_grade = request.form.get('membership_grade', user.membership_grade)
+    user.account_status = request.form.get('account_status', user.account_status)
+    user.is_admin = request.form.get('is_admin') == 'on'
+    user.email_verified = request.form.get('email_verified') == 'on'
+    
+    # Update credit points (only superuser can modify)
+    credit_point = request.form.get('credit_point')
+    if credit_point is not None:
+        try:
+            user.credit_point = float(credit_point)
+            if user.credit_point < 0:
+                user.credit_point = 0.0
+        except (ValueError, TypeError):
+            flash('Invalid credit point value.', 'warning')
+            user.credit_point = user.credit_point or 0.0
+    
+    db.session.commit()
+    
+    flash(f'Successfully updated {user.username}\'s details.', 'success')
+    return redirect(url_for('admin_members'))
+
+
+@app.route('/admin/members/<int:user_id>/delete', methods=['GET', 'POST'])
+@login_required
+def delete_member(user_id):
+    """Delete a member (admin only with superuser password)."""
+    if not current_user.is_admin:
+        flash('Access denied. Admin privileges required.', 'danger')
+        return redirect(url_for('index'))
+    
+    user = User.query.get_or_404(user_id)
+    
+    # For GET requests, show confirmation page
+    if request.method == 'GET':
+        return render_template('delete_member_confirm.html', user=user)
+    
+    # For POST requests, process deletion
+    superuser_password = request.form.get('superuser_password')
+    
+    if not validate_superuser_password(superuser_password):
+        flash('Invalid superuser password.', 'danger')
+        return redirect(url_for('admin_members'))
+    
+    # Prevent admin from deleting themselves
+    if user.id == current_user.id:
+        flash('You cannot delete your own account.', 'danger')
+        return redirect(url_for('admin_members'))
+    
+    username = user.username
+    
+    # Delete all related data
+    # Delete RSVPs
+    RSVP.query.filter_by(user_id=user_id).delete()
+    
+    # Delete notifications
+    Notification.query.filter_by(user_id=user_id).delete()
+    
+    # Delete feedback
+    Feedback.query.filter_by(user_id=user_id).delete()
+    
+    # Delete the user
+    db.session.delete(user)
+    db.session.commit()
+    
+    flash(f'Successfully deleted member {username} and all associated data.', 'success')
+    return redirect(url_for('admin_members'))
+
+
+@app.route('/test-buttons')
+def test_buttons():
+    """Test page for debugging button functionality."""
+    return send_from_directory('templates', 'test_buttons.html')
+
+@app.route('/debug-buttons')
+def debug_buttons():
+    """Debug page for testing button functionality."""
+    return send_from_directory('templates', 'debug_buttons.html')
+
+@app.route('/simple-test')
+def simple_test():
+    """Simple test page for basic functionality."""
+    return send_from_directory('templates', 'simple_test.html')
+
+
 @app.route('/past-events')
 @login_required
 def past_events():
@@ -910,12 +1759,14 @@ def past_events():
     # Get past events for current user (both organized and attended)
     organized_events = Event.query.filter(
         Event.creator_id == current_user.id,
-        Event.start_date < datetime.utcnow()
+        Event.start_date < datetime.utcnow(),
+        Event.status != 'cancelled'
     ).order_by(Event.start_date.desc()).all()
     
     attended_events = Event.query.join(RSVP).filter(
         RSVP.user_id == current_user.id,
-        Event.start_date < datetime.utcnow()
+        Event.start_date < datetime.utcnow(),
+        Event.status != 'cancelled'
     ).order_by(Event.start_date.desc()).all()
     
     # Combine and deduplicate
@@ -952,6 +1803,113 @@ def mark_all_notifications_read():
     Notification.query.filter_by(user_id=current_user.id, read_at=None).update({'read_at': datetime.utcnow()})
     db.session.commit()
     return jsonify({'success': True})
+
+
+@app.route('/event/<int:event_id>/feedback', methods=['GET', 'POST'])
+@login_required
+def event_feedback(event_id):
+    """View and submit feedback for an event."""
+    event = Event.query.get_or_404(event_id)
+    
+    # Check if event is cancelled
+    if event.status == 'cancelled':
+        flash('Cannot provide feedback for a cancelled event.', 'warning')
+        return redirect(url_for('index'))
+    
+    # Check if user has already submitted feedback
+    existing_feedback = Feedback.query.filter_by(event_id=event_id, user_id=current_user.id).first()
+    if existing_feedback:
+        flash('You have already submitted feedback for this event.', 'info')
+        return redirect(url_for('event_detail', event_id=event_id))
+    
+    # Check if user attended the event (has RSVP with accepted status)
+    rsvp = RSVP.query.filter_by(event_id=event_id, user_id=current_user.id, status='accepted').first()
+    if not rsvp:
+        flash('Only attendees can provide feedback for this event.', 'warning')
+        return redirect(url_for('event_detail', event_id=event_id))
+    
+    if request.method == 'POST':
+        # Get form data
+        overall_rating = int(request.form.get('overall_rating'))
+        content_quality = int(request.form.get('content_quality'))
+        organization = int(request.form.get('organization'))
+        venue_rating = int(request.form.get('venue_rating'))
+        value_for_money = int(request.form.get('value_for_money'))
+        likelihood_to_recommend = int(request.form.get('likelihood_to_recommend'))
+        additional_comments = request.form.get('additional_comments', '').strip()
+        
+        # Validate ratings (1-5)
+        ratings = [overall_rating, content_quality, organization, venue_rating, value_for_money, likelihood_to_recommend]
+        if not all(1 <= rating <= 5 for rating in ratings):
+            flash('All ratings must be between 1 and 5.', 'danger')
+            return render_template('feedback.html', event=event)
+        
+        # Create feedback
+        feedback = Feedback(
+            event_id=event_id,
+            user_id=current_user.id,
+            overall_rating=overall_rating,
+            content_quality=content_quality,
+            organization=organization,
+            venue_rating=venue_rating,
+            value_for_money=value_for_money,
+            likelihood_to_recommend=likelihood_to_recommend,
+            additional_comments=additional_comments if additional_comments else None
+        )
+        
+        db.session.add(feedback)
+        db.session.commit()
+        
+        flash('Thank you for your feedback! Your input helps us improve our events.', 'success')
+        return redirect(url_for('event_detail', event_id=event_id))
+    
+    return render_template('feedback.html', event=event)
+
+
+@app.route('/admin/feedback-analytics')
+@login_required
+def feedback_analytics():
+    """Admin feedback analytics page."""
+    if not current_user.is_admin:
+        flash('Only administrators can view feedback analytics.', 'danger')
+        return redirect(url_for('index'))
+    
+    # Get all events with feedback
+    events_with_feedback = db.session.query(Event).join(Feedback).distinct().all()
+    
+    # Calculate analytics for each event
+    event_analytics = []
+    for event in events_with_feedback:
+        feedbacks = Feedback.query.filter_by(event_id=event.id).all()
+        
+        if feedbacks:
+            # Calculate averages
+            avg_overall = sum(f.overall_rating for f in feedbacks) / len(feedbacks)
+            avg_content = sum(f.content_quality for f in feedbacks) / len(feedbacks)
+            avg_organization = sum(f.organization for f in feedbacks) / len(feedbacks)
+            avg_venue = sum(f.venue_rating for f in feedbacks) / len(feedbacks)
+            avg_value = sum(f.value_for_money for f in feedbacks) / len(feedbacks)
+            avg_recommend = sum(f.likelihood_to_recommend for f in feedbacks) / len(feedbacks)
+            
+            # Get comments
+            comments = [f.additional_comments for f in feedbacks if f.additional_comments]
+            
+            event_analytics.append({
+                'event': event,
+                'feedback_count': len(feedbacks),
+                'avg_overall': round(avg_overall, 1),
+                'avg_content': round(avg_content, 1),
+                'avg_organization': round(avg_organization, 1),
+                'avg_venue': round(avg_venue, 1),
+                'avg_value': round(avg_value, 1),
+                'avg_recommend': round(avg_recommend, 1),
+                'comments': comments
+            })
+    
+    # Sort by feedback count (most feedback first)
+    event_analytics.sort(key=lambda x: x['feedback_count'], reverse=True)
+    
+    return render_template('feedback_analytics.html', event_analytics=event_analytics)
 
 
 @app.route('/event/<int:event_id>/cancel', methods=['POST'])
@@ -1065,6 +2023,116 @@ def event_stats(event_id):
         'checked_in': sum(1 for rsvp in event.rsvps if rsvp.checked_in)
     }
     return jsonify(stats)
+
+
+@app.route('/event/<int:event_id>/payment', methods=['POST'])
+@login_required
+def create_payment(event_id):
+    """Create a payment for an event."""
+    event = Event.query.get_or_404(event_id)
+    
+    if event.price <= 0:
+        flash('This event is free.', 'info')
+        return redirect(url_for('event_detail', event_id=event_id))
+    
+    # Check if user already has an RSVP
+    rsvp = RSVP.query.filter_by(event_id=event_id, user_id=current_user.id).first()
+    if not rsvp:
+        flash('Please RSVP first before making payment.', 'warning')
+        return redirect(url_for('event_detail', event_id=event_id))
+    
+    if rsvp.payment_status == 'paid':
+        flash('Payment already completed.', 'info')
+        return redirect(url_for('event_detail', event_id=event_id))
+    
+    # Create Stripe checkout session
+    success_url = url_for('payment_success', rsvp_id=rsvp.id, _external=True)
+    cancel_url = url_for('event_detail', event_id=event_id, _external=True)
+    
+    session = create_stripe_checkout_session(
+        amount=event.price,
+        event_name=event.name,
+        rsvp_id=rsvp.id,
+        success_url=success_url,
+        cancel_url=cancel_url,
+        currency=app.config.get('DEFAULT_CURRENCY', 'sgd').lower()
+    )
+    
+    if session:
+        return redirect(session.url)
+    else:
+        flash('Failed to create payment session. Please try again.', 'danger')
+        return redirect(url_for('event_detail', event_id=event_id))
+
+
+@app.route('/payment/success/<int:rsvp_id>')
+@login_required
+def payment_success(rsvp_id):
+    """Handle successful payment."""
+    rsvp = RSVP.query.get_or_404(rsvp_id)
+    
+    if rsvp.user_id != current_user.id:
+        flash('Unauthorized access.', 'danger')
+        return redirect(url_for('index'))
+    
+    # Update RSVP status to paid
+    rsvp.payment_status = 'paid'
+    rsvp.payment_amount = rsvp.event.price
+    
+    # If capacity allows, set status to Accepted
+    if rsvp.event.available_spots > 0:
+        rsvp.status = 'Accepted'
+    
+    db.session.commit()
+    
+    # Send confirmation email
+    send_email(
+        to_email=current_user.email,
+        subject=f'Payment Confirmation - {rsvp.event.name}',
+        body=f'Your payment for {rsvp.event.name} has been confirmed. Amount: ${rsvp.payment_amount:.2f}',
+        html_body=f'''
+        <h2>Payment Confirmation</h2>
+        <p>Your payment for <strong>{rsvp.event.name}</strong> has been confirmed.</p>
+        <p><strong>Amount:</strong> ${rsvp.payment_amount:.2f}</p>
+        <p><strong>Event Date:</strong> {rsvp.event.start_date.strftime('%Y-%m-%d %H:%M')}</p>
+        <p><strong>Location:</strong> {rsvp.event.location}</p>
+        <p>Thank you for your payment!</p>
+        '''
+    )
+    
+    flash('Payment successful! You will receive a confirmation email shortly.', 'success')
+    return redirect(url_for('event_detail', event_id=rsvp.event_id))
+
+
+@app.route('/payment/webhook', methods=['POST'])
+def stripe_webhook():
+    """Handle Stripe webhook events."""
+    payload = request.get_data()
+    sig_header = request.headers.get('Stripe-Signature')
+    
+    try:
+        event = stripe.Webhook.construct_event(
+            payload, sig_header, app.config['STRIPE_WEBHOOK_SECRET']
+        )
+    except ValueError:
+        return 'Invalid payload', 400
+    except stripe.error.SignatureVerificationError:
+        return 'Invalid signature', 400
+    
+    # Handle the event
+    if event['type'] == 'checkout.session.completed':
+        session = event['data']['object']
+        rsvp_id = session['metadata']['rsvp_id']
+        
+        # Update RSVP payment status
+        rsvp = RSVP.query.get(rsvp_id)
+        if rsvp:
+            rsvp.payment_status = 'paid'
+            rsvp.payment_amount = session['amount_total'] / 100  # Convert from cents
+            rsvp.stripe_payment_intent_id = session['payment_intent']
+            db.session.commit()
+    
+    return 'Success', 200
 
 
 if __name__ == '__main__':

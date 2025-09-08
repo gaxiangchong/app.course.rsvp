@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-{% block title %}Analytics - EventApp{% endblock %}
+{% block title %}Analytics - Noble Quest{% endblock %}
 {% block content %}
   <div class="welcome-section">
     <div class="d-flex justify-content-between align-items-center">
@@ -7,9 +7,6 @@
         <h1 class="welcome-title">Event Analytics</h1>
         <p class="welcome-subtitle">Track your event performance</p>
       </div>
-      <a href="{{ url_for('create_event') }}" class="btn btn-primary">
-        <i class="fas fa-plus mr-2"></i>Create Event
-      </a>
     </div>
   </div>
   
@@ -59,7 +56,7 @@
   <h4>Recent Events</h4>
   {% if recent_events %}
     <div class="table-responsive">
-      <table class="table table-striped">
+      <table class="table table-striped analytics-table">
         <thead>
           <tr>
             <th>Event Name</th>

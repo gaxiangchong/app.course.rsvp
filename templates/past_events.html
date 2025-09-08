@@ -7,11 +7,6 @@
         <h1 class="welcome-title">Past Events</h1>
         <p class="welcome-subtitle">Your event history</p>
       </div>
-      {% if current_user.is_admin %}
-        <a href="{{ url_for('create_event') }}" class="btn btn-primary">
-          <i class="fas fa-plus mr-2"></i>Create Event
-        </a>
-      {% endif %}
     </div>
   </div>
   
