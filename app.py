@@ -78,8 +78,9 @@ db = SQLAlchemy(app)
 login_manager = LoginManager(app)
 login_manager.login_view = 'login'
 
-# Initialize Stripe
-stripe.api_key = app.config['STRIPE_SECRET_KEY']
+# Initialize Stripe (only if API key is provided)
+if app.config.get('STRIPE_SECRET_KEY'):
+    stripe.api_key = app.config['STRIPE_SECRET_KEY']
 
 # Make helper functions and config available to templates
 @app.context_processor
@@ -720,6 +721,10 @@ def validate_superuser_password(password):
 
 def create_stripe_payment_intent(amount, currency='sgd', metadata=None):
     """Create a Stripe payment intent."""
+    if not app.config.get('STRIPE_SECRET_KEY'):
+        print("Stripe not configured - payment intent creation skipped")
+        return None
+    
     try:
         intent = stripe.PaymentIntent.create(
             amount=int(amount * 100),  # Convert to cents
@@ -734,6 +739,10 @@ def create_stripe_payment_intent(amount, currency='sgd', metadata=None):
 
 def create_stripe_checkout_session(amount, event_name, rsvp_id, success_url, cancel_url, currency='sgd'):
     """Create a Stripe checkout session."""
+    if not app.config.get('STRIPE_SECRET_KEY'):
+        print("Stripe not configured - checkout session creation skipped")
+        return None
+    
     try:
         session = stripe.checkout.Session.create(
             payment_method_types=['card'],
@@ -2107,6 +2116,9 @@ def payment_success(rsvp_id):
 @app.route('/payment/webhook', methods=['POST'])
 def stripe_webhook():
     """Handle Stripe webhook events."""
+    if not app.config.get('STRIPE_WEBHOOK_SECRET'):
+        return 'Stripe not configured', 400
+    
     payload = request.get_data()
     sig_header = request.headers.get('Stripe-Signature')
     
