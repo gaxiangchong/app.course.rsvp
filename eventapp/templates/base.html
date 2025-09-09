@@ -560,11 +560,11 @@
         }
         
         .app-name {
-          font-size: 20px;
+          font-size: 18px;
         }
         
         .app-tagline {
-          font-size: 10px;
+          font-size: 9px;
         }
         
         
@@ -1602,9 +1602,8 @@
                   <p class="user-name">{{ current_user.display_name }}</p>
                   <p class="user-role">
                     {% if current_user.is_admin %}Admin{% else %}User{% endif %}
-                    <span class="membership-grade" style="color: {{ get_membership_grade_info(current_user.membership_grade).color }};">
+                    <span class="membership-grade" style="color: {{ get_membership_grade_info(current_user.membership_grade).color }};" title="{{ current_user.membership_grade }}">
                       <i class="{{ get_membership_grade_info(current_user.membership_grade).icon }}"></i>
-                      {{ current_user.membership_grade }}
                     </span>
                   </p>
                 </div>
