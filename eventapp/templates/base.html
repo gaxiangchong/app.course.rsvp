@@ -23,7 +23,7 @@
         background-color: var(--dark-bg) !important;
         color: var(--dark-text) !important;
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        padding-top: 80px; /* Space for header */
+        padding-top: 90px; /* Space for header */
         padding-bottom: 80px; /* Space for bottom navigation */
       }
       
@@ -305,13 +305,14 @@
       .logo-text {
         display: flex;
         flex-direction: column;
+        gap: 2px; /* Spacing between Noble Quest and Learning Platform */
       }
       
       .app-name {
         font-size: 24px;
         font-weight: 800;
         color: var(--dark-text);
-        margin: 0;
+        margin: 0 0 2px 0;
         line-height: 1;
         background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
         -webkit-background-clip: text;
@@ -473,7 +474,7 @@
       .user-section {
         display: flex;
         align-items: center;
-        gap: 16px;
+        gap: 4px; /* Reduced spacing between login and register buttons */
       }
       
       .user-info {
@@ -1602,9 +1603,6 @@
                   <p class="user-name">{{ current_user.display_name }}</p>
                   <p class="user-role">
                     {% if current_user.is_admin %}Admin{% else %}User{% endif %}
-                    <span class="membership-grade" style="color: {{ get_membership_grade_info(current_user.membership_grade).color }};" title="{{ current_user.membership_grade }}">
-                      <i class="{{ get_membership_grade_info(current_user.membership_grade).icon }}"></i>
-                    </span>
                   </p>
                 </div>
               </div>

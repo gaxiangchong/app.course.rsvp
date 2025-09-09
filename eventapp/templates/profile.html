@@ -128,6 +128,12 @@
         <div class="card-body">
           <p><strong>Member since:</strong> {{ current_user.created_at.strftime('%B %d, %Y') }}</p>
           <p><strong>Account type:</strong> {% if current_user.is_admin %}Organizer{% else %}Attendee{% endif %}</p>
+          <p><strong>Membership Grade:</strong> 
+            <span class="membership-grade" style="color: {{ get_membership_grade_info(current_user.membership_grade).color }};">
+              <i class="{{ get_membership_grade_info(current_user.membership_grade).icon }}"></i>
+              {{ current_user.membership_grade }}
+            </span>
+          </p>
           <p><strong>Available Credits:</strong> <span class="badge badge-warning"><i class="fas fa-coins"></i> {{ "%.2f"|format(current_user.credit_point or 0) }}</span></p>
           <p><strong>Total RSVPs:</strong> {{ current_user.rsvps|length }}</p>
           {% if current_user.is_admin %}
