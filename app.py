@@ -35,7 +35,14 @@ from werkzeug.security import check_password_hash, generate_password_hash
 from dotenv import load_dotenv
 
 import qrcode
-import stripe
+
+# Conditional Stripe import
+try:
+    import stripe
+    STRIPE_AVAILABLE = True
+except ImportError:
+    STRIPE_AVAILABLE = False
+    stripe = None
 
 # Load environment variables
 try:
@@ -78,8 +85,8 @@ db = SQLAlchemy(app)
 login_manager = LoginManager(app)
 login_manager.login_view = 'login'
 
-# Initialize Stripe (only if API key is provided)
-if app.config.get('STRIPE_SECRET_KEY'):
+# Initialize Stripe (only if available and API key is provided)
+if STRIPE_AVAILABLE and app.config.get('STRIPE_SECRET_KEY'):
     stripe.api_key = app.config['STRIPE_SECRET_KEY']
 
 # Make helper functions and config available to templates
@@ -721,8 +728,8 @@ def validate_superuser_password(password):
 
 def create_stripe_payment_intent(amount, currency='sgd', metadata=None):
     """Create a Stripe payment intent."""
-    if not app.config.get('STRIPE_SECRET_KEY'):
-        print("Stripe not configured - payment intent creation skipped")
+    if not STRIPE_AVAILABLE or not app.config.get('STRIPE_SECRET_KEY'):
+        print("Stripe not available or configured - payment intent creation skipped")
         return None
     
     try:
@@ -739,8 +746,8 @@ def create_stripe_payment_intent(amount, currency='sgd', metadata=None):
 
 def create_stripe_checkout_session(amount, event_name, rsvp_id, success_url, cancel_url, currency='sgd'):
     """Create a Stripe checkout session."""
-    if not app.config.get('STRIPE_SECRET_KEY'):
-        print("Stripe not configured - checkout session creation skipped")
+    if not STRIPE_AVAILABLE or not app.config.get('STRIPE_SECRET_KEY'):
+        print("Stripe not available or configured - checkout session creation skipped")
         return None
     
     try:
@@ -2054,6 +2061,11 @@ def create_payment(event_id):
         flash('Payment already completed.', 'info')
         return redirect(url_for('event_detail', event_id=event_id))
     
+    # Check if Stripe is available
+    if not STRIPE_AVAILABLE:
+        flash('Payment system is currently unavailable. Please contact the event organizer.', 'warning')
+        return redirect(url_for('event_detail', event_id=event_id))
+    
     # Create Stripe checkout session
     success_url = url_for('payment_success', rsvp_id=rsvp.id, _external=True)
     cancel_url = url_for('event_detail', event_id=event_id, _external=True)
@@ -2116,8 +2128,8 @@ def payment_success(rsvp_id):
 @app.route('/payment/webhook', methods=['POST'])
 def stripe_webhook():
     """Handle Stripe webhook events."""
-    if not app.config.get('STRIPE_WEBHOOK_SECRET'):
-        return 'Stripe not configured', 400
+    if not STRIPE_AVAILABLE or not app.config.get('STRIPE_WEBHOOK_SECRET'):
+        return 'Stripe not available or configured', 400
     
     payload = request.get_data()
     sig_header = request.headers.get('Stripe-Signature')
