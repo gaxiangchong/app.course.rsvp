@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/css/bootstrap.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <title>{% block title %}Noble Quest - Educational Platform{% endblock %}</title>
+    <title>{% block title %}Noble Quest - Learning Platform{% endblock %}</title>
     <style>
       :root {
         --primary-color: #007bff;
@@ -281,16 +281,20 @@
       .logo-icon {
         width: 48px;
         height: 48px;
-        background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
         border-radius: 12px;
         display: flex;
         align-items: center;
         justify-content: center;
-        color: white;
-        font-size: 24px;
-        font-weight: 700;
         box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);
         transition: all 0.3s ease;
+        overflow: hidden;
+      }
+      
+      .logo-image {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        border-radius: 8px;
       }
       
       .app-logo:hover .logo-icon {
@@ -323,6 +327,7 @@
         text-transform: uppercase;
         letter-spacing: 1px;
       }
+      
       
       .header-nav {
         display: flex;
@@ -552,7 +557,6 @@
         .logo-icon {
           width: 40px;
           height: 40px;
-          font-size: 20px;
         }
         
         .app-name {
@@ -562,6 +566,7 @@
         .app-tagline {
           font-size: 10px;
         }
+        
         
         .header-nav {
           gap: 12px;
@@ -1524,11 +1529,11 @@
         <div class="logo-section">
           <a href="{{ url_for('index') }}" class="app-logo">
             <div class="logo-icon">
-              <i class="fas fa-graduation-cap"></i>
+              <img src="{{ url_for('static', filename='images/logos/chinese-seal.png') }}" alt="卿合文化" class="logo-image">
             </div>
             <div class="logo-text">
               <h1 class="app-name">Noble Quest</h1>
-              <p class="app-tagline">Educational Platform</p>
+              <p class="app-tagline">Learning Platform</p>
             </div>
           </a>
         </div>
