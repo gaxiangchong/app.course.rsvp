@@ -62,6 +62,12 @@ app.config['MAIL_PORT'] = int(os.getenv('MAIL_PORT', 587))
 app.config['MAIL_USE_TLS'] = os.getenv('MAIL_USE_TLS', 'True').lower() == 'true'
 app.config['MAIL_USERNAME'] = os.getenv('MAIL_USERNAME')
 app.config['MAIL_PASSWORD'] = os.getenv('MAIL_PASSWORD')
+app.config['ADMIN_EMAIL'] = os.getenv('ADMIN_EMAIL', 'noblequest.edu@outlook.com')
+
+# Flask URL configuration (for email verification)
+app.config['SERVER_NAME'] = os.getenv('SERVER_NAME', '127.0.0.1:5001')
+app.config['APPLICATION_ROOT'] = os.getenv('APPLICATION_ROOT', '/')
+app.config['PREFERRED_URL_SCHEME'] = os.getenv('PREFERRED_URL_SCHEME', 'http')
 
 # File upload configuration
 app.config['UPLOAD_FOLDER'] = 'static/uploads/events'
@@ -543,7 +549,7 @@ def send_email(to_email, subject, body, html_body=None):
         
         msg = MIMEMultipart('alternative')
         msg['Subject'] = subject
-        msg['From'] = app.config['MAIL_USERNAME']
+        msg['From'] = app.config.get('ADMIN_EMAIL', app.config['MAIL_USERNAME'])
         msg['To'] = to_email
         
         # Add text and HTML parts
@@ -992,9 +998,13 @@ def register():
         db.session.add(user)
         db.session.commit()
         
-        # Skip email verification for now
-        user.email_verified = True
-        flash('Registration successful! You can now log in.', 'success')
+        # Send verification email
+        try:
+            send_verification_email(user)
+            flash('Registration successful! Please check your email to verify your account.', 'success')
+        except Exception as e:
+            print(f"Failed to send verification email: {e}")
+            flash('Registration successful, but failed to send verification email. Please check your email configuration or contact support.', 'warning')
         
         return redirect(url_for('resend_verification'))
     return render_template('register.html')
@@ -1009,10 +1019,10 @@ def login():
         password = request.form.get('password')
         user = User.query.filter_by(email=email).first()
         if user and user.check_password(password):
-            # Skip email verification check for now
-            # if not user.email_verified:
-            #     flash('Please verify your email address before logging in. Check your inbox for a verification link.', 'warning')
-            #     return redirect(url_for('resend_verification'))
+            # Check if email is verified
+            if not user.email_verified:
+                flash('Please verify your email address before logging in. Check your inbox for a verification link.', 'warning')
+                return redirect(url_for('resend_verification'))
             
             login_user(user)
             flash('Logged in successfully.', 'success')
@@ -1072,9 +1082,14 @@ def resend_verification():
             flash('Email is already verified. You can log in.', 'info')
             return redirect(url_for('login'))
         
-        # Skip email verification for now
-        user.email_verified = True
-        flash('Account is now verified! You can log in.', 'success')
+        # Send verification email
+        try:
+            send_verification_email(user)
+            flash('Verification email sent successfully! Please check your inbox and spam folder.', 'success')
+            return redirect(url_for('resend_verification', sent='true'))
+        except Exception as e:
+            print(f"Failed to send verification email: {e}")
+            flash('Failed to send verification email. Please try again later or contact support.', 'danger')
         
         return render_template('resend_verification.html')
     
