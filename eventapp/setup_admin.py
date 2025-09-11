@@ -71,7 +71,8 @@ def create_admin_user():
                 username=username,
                 email=email,
                 is_admin=True,
-                email_notifications=True
+                email_notifications=True,
+                email_verified=True  # Skip email verification for admin accounts
             )
             admin.set_password(password)
             db.session.add(admin)
@@ -99,7 +100,33 @@ def list_users():
         print("-" * 50)
         for user in users:
             admin_status = "Admin" if user.is_admin else "User"
-            print(f"{user.username} ({user.email}) - {admin_status}")
+            verified_status = "Verified" if user.email_verified else "Unverified"
+            print(f"{user.username} ({user.email}) - {admin_status} - {verified_status}")
+
+def fix_admin_verification():
+    """Fix email verification for existing admin accounts."""
+    print("🔧 Fixing Email Verification for Admin Accounts")
+    print("=" * 50)
+    
+    with app.app_context():
+        admin_users = User.query.filter_by(is_admin=True).all()
+        
+        if not admin_users:
+            print("No admin users found.")
+            return
+        
+        print(f"Found {len(admin_users)} admin user(s):")
+        for admin in admin_users:
+            print(f"  - {admin.username} ({admin.email})")
+            if not admin.email_verified:
+                print(f"    ❌ Email not verified - fixing...")
+                admin.email_verified = True
+                db.session.commit()
+                print(f"    ✅ Email verification enabled")
+            else:
+                print(f"    ✅ Email already verified")
+        
+        print("\n✅ All admin accounts now have email verification enabled!")
 
 def main():
     """Main function."""
@@ -107,10 +134,11 @@ def main():
     print("=" * 20)
     print("1. Create admin user")
     print("2. List all users")
-    print("3. Exit")
+    print("3. Fix admin email verification")
+    print("4. Exit")
     
     while True:
-        choice = input("\nSelect an option (1-3): ").strip()
+        choice = input("\nSelect an option (1-4): ").strip()
         
         if choice == '1':
             create_admin_user()
@@ -118,10 +146,12 @@ def main():
         elif choice == '2':
             list_users()
         elif choice == '3':
+            fix_admin_verification()
+        elif choice == '4':
             print("Goodbye!")
             break
         else:
-            print("Invalid choice. Please select 1, 2, or 3.")
+            print("Invalid choice. Please select 1, 2, 3, or 4.")
 
 if __name__ == '__main__':
     main()
