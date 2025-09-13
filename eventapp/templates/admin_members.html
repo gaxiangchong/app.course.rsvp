@@ -47,7 +47,7 @@
               <th>Phone</th>
               <th>Country</th>
               <th>Grade</th>
-              <th>Status</th>
+              <th>YS Type</th>
               <th>Credits</th>
               <th>RSVPs</th>
               <th>Actions</th>
@@ -91,11 +91,10 @@
                   </span>
                 </td>
                 <td>
-                  {% if member.account_status == 'active' %}
-                    <span class="badge badge-success">Active</span>
-                  {% else %}
-                    <span class="badge badge-secondary">{{ member.account_status|title }}</span>
-                  {% endif %}
+                  <span class="membership-type" style="background-color: {{ get_membership_type_info(member.membership_type).color }}20; color: {{ get_membership_type_info(member.membership_type).color }}; border: 1px solid {{ get_membership_type_info(member.membership_type).color }};">
+                    <i class="{{ get_membership_type_info(member.membership_type).icon }}"></i>
+                    {{ member.membership_type }}
+                  </span>
                 </td>
                 <td>
                   <span class="badge badge-warning">
@@ -210,6 +209,14 @@
                   <select class="form-control" id="editMembershipGrade" name="membership_grade" required>
                     {% for grade in ['Pending Review', 'Classic', 'Silver', 'Gold', 'Platinum', 'Diamond'] %}
                       <option value="{{ grade }}">{{ grade }} - {{ get_membership_grade_info(grade).description }}</option>
+                    {% endfor %}
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="editMembershipType">Membership Type:</label>
+                  <select class="form-control" id="editMembershipType" name="membership_type" required>
+                    {% for type_key, type_info in MEMBERSHIP_TYPES.items() %}
+                      <option value="{{ type_key }}">{{ type_key }} - {{ type_info.description }}</option>
                     {% endfor %}
                   </select>
                 </div>
@@ -356,6 +363,7 @@ function openEditModal(memberId) {
     $('#editCountry').val(member.country);
     $('#editCity').val(member.city);
     $('#editMembershipGrade').val(member.membership_grade);
+    $('#editMembershipType').val(member.membership_type);
     $('#editAccountStatus').val(member.account_status);
     $('#editCreditPoint').val(member.credit_point || 0);
     $('#editIsAdmin').prop('checked', member.is_admin);
@@ -471,6 +479,7 @@ $(document).ready(function() {
         country: "{{ member.country or '' }}",
         city: "{{ member.city or '' }}",
         membership_grade: "{{ member.membership_grade }}",
+        membership_type: "{{ member.membership_type }}",
         account_status: "{{ member.account_status }}",
         credit_point: {{ member.credit_point or 0 }},
         is_admin: {{ member.is_admin|lower }},

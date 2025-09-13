@@ -106,7 +106,7 @@ def inject_helpers():
         'default_country': app.config.get('DEFAULT_COUNTRY', 'Singapore')
     }
 
-# Membership grade configuration
+# Membership grade configuration (for admin management)
 MEMBERSHIP_GRADES = {
     'Pending Review': {
         'name': 'Pending Review',
@@ -143,6 +143,40 @@ MEMBERSHIP_GRADES = {
         'icon': 'fas fa-gem',
         'color': '#b9f2ff',
         'description': 'Diamond membership'
+    }
+}
+
+# Membership type configuration (for user registration)
+MEMBERSHIP_TYPES = {
+    'NA': {
+        'name': 'NA',
+        'icon': 'fas fa-user',
+        'color': '#6c757d',
+        'description': 'Not applicable'
+    },
+    '会员': {
+        'name': '会员',
+        'icon': 'fas fa-star',
+        'color': '#28a745',
+        'description': 'Member'
+    },
+    '家族': {
+        'name': '家族',
+        'icon': 'fas fa-users',
+        'color': '#17a2b8',
+        'description': 'Family'
+    },
+    '星光': {
+        'name': '星光',
+        'icon': 'fas fa-star',
+        'color': '#ffc107',
+        'description': 'Starlight'
+    },
+    '嫡传': {
+        'name': '嫡传',
+        'icon': 'fas fa-crown',
+        'color': '#dc3545',
+        'description': 'Direct lineage'
     }
 }
 
@@ -195,11 +229,12 @@ class User(UserMixin, db.Model):
     privacy_show_city = db.Column(db.Boolean, default=True)
     privacy_show_full_name = db.Column(db.Boolean, default=True)
     account_status = db.Column(db.String(20), default='active')
-    email_verified = db.Column(db.Boolean, default=False)
+    email_verified = db.Column(db.Boolean, default=True)
     email_verification_token = db.Column(db.String(100), nullable=True)
     email_verification_sent_at = db.Column(db.DateTime, nullable=True)
     password_reset_token = db.Column(db.String(100), nullable=True)
     password_reset_sent_at = db.Column(db.DateTime, nullable=True)
+    membership_type = db.Column(db.String(20), default='NA')  # NA, 会员, 家族, 星光, 嫡传
     membership_grade = db.Column(db.String(20), default='Pending Review')  # Classic, Silver, Gold, Platinum, Diamond
     credit_point = db.Column(db.Float, default=0.0)  # Credit points for event payments
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -706,6 +741,10 @@ def get_membership_grade_info(grade):
     """Get membership grade information."""
     return MEMBERSHIP_GRADES.get(grade, MEMBERSHIP_GRADES['Classic'])
 
+def get_membership_type_info(membership_type):
+    """Get membership type information."""
+    return MEMBERSHIP_TYPES.get(membership_type, MEMBERSHIP_TYPES['NA'])
+
 def get_currency_info(country='Singapore'):
     """Get currency information based on country."""
     currencies = {
@@ -968,6 +1007,8 @@ def register():
     if request.method == 'POST':
         username = request.form.get('username', '').strip()
         email = request.form.get('email', '').strip().lower()
+        phone = request.form.get('phone', '').strip()
+        membership_type = request.form.get('membership_type', 'NA').strip()
         password = request.form.get('password')
         confirm_password = request.form.get('confirm_password')
         
@@ -979,6 +1020,14 @@ def register():
             errors.append('Email is required.')
         elif not re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', email):
             errors.append('Please enter a valid email address.')
+        if not phone:
+            errors.append('Phone number is required.')
+        elif not re.match(r'^[\+]?[1-9][\d]{0,15}$', phone.replace(' ', '').replace('-', '')):
+            errors.append('Please enter a valid phone number.')
+        if not membership_type:
+            errors.append('Membership type is required.')
+        elif membership_type not in MEMBERSHIP_TYPES:
+            errors.append('Please select a valid membership type.')
         if not password or len(password) < 6:
             errors.append('Password must be at least 6 characters long.')
         if password != confirm_password:
@@ -993,20 +1042,17 @@ def register():
             flash('Email already registered.', 'danger')
             return redirect(url_for('register'))
         
-        user = User(username=username, email=email, country='Singapore')
+        user = User(username=username, email=email, phone=phone, membership_type=membership_type, country='Singapore')
         user.set_password(password)
         db.session.add(user)
         db.session.commit()
         
-        # Send verification email
-        try:
-            send_verification_email(user)
-            flash('Registration successful! Please check your email to verify your account.', 'success')
-        except Exception as e:
-            print(f"Failed to send verification email: {e}")
-            flash('Registration successful, but failed to send verification email. Please check your email configuration or contact support.', 'warning')
+        # Email verification is temporarily disabled
+        # Users are automatically verified upon registration
+        user.email_verified = True
+        flash('Registration successful! You can now log in.', 'success')
         
-        return redirect(url_for('resend_verification'))
+        return redirect(url_for('login'))
     return render_template('register.html')
 
 
@@ -1019,11 +1065,8 @@ def login():
         password = request.form.get('password')
         user = User.query.filter_by(email=email).first()
         if user and user.check_password(password):
-            # Check if email is verified
-            if not user.email_verified:
-                flash('Please verify your email address before logging in. Check your inbox for a verification link.', 'warning')
-                return redirect(url_for('resend_verification'))
-            
+            # Email verification is temporarily disabled
+            # Users can login without email verification
             login_user(user)
             flash('Logged in successfully.', 'success')
             next_page = request.args.get('next')
@@ -1082,14 +1125,11 @@ def resend_verification():
             flash('Email is already verified. You can log in.', 'info')
             return redirect(url_for('login'))
         
-        # Send verification email
-        try:
-            send_verification_email(user)
-            flash('Verification email sent successfully! Please check your inbox and spam folder.', 'success')
-            return redirect(url_for('resend_verification', sent='true'))
-        except Exception as e:
-            print(f"Failed to send verification email: {e}")
-            flash('Failed to send verification email. Please try again later or contact support.', 'danger')
+        # Email verification is temporarily disabled
+        # Automatically verify the user's email
+        user.email_verified = True
+        db.session.commit()
+        flash('Account is now verified! You can log in.', 'success')
         
         return render_template('resend_verification.html')
     
@@ -1594,7 +1634,7 @@ def admin_members():
     for grade in MEMBERSHIP_GRADES.keys():
         grade_stats[grade] = len([m for m in members if m.membership_grade == grade])
     
-    return render_template('admin_members.html', members=members, grade_stats=grade_stats)
+    return render_template('admin_members.html', members=members, grade_stats=grade_stats, get_membership_type_info=get_membership_type_info, MEMBERSHIP_TYPES=MEMBERSHIP_TYPES)
 
 
 @app.route('/admin/members/<int:user_id>/update_grade', methods=['POST'])
@@ -1654,6 +1694,7 @@ def validate_superuser():
             user.country = parsed_data.get('country', [user.country])[0] or None
             user.city = parsed_data.get('city', [user.city])[0] or None
             user.membership_grade = parsed_data.get('membership_grade', [user.membership_grade])[0]
+            user.membership_type = parsed_data.get('membership_type', [user.membership_type])[0]
             user.account_status = parsed_data.get('account_status', [user.account_status])[0]
             user.is_admin = 'is_admin' in parsed_data
             user.email_verified = 'email_verified' in parsed_data
@@ -1700,6 +1741,7 @@ def update_member(user_id):
     user.country = request.form.get('country') or None
     user.city = request.form.get('city') or None
     user.membership_grade = request.form.get('membership_grade', user.membership_grade)
+    user.membership_type = request.form.get('membership_type', user.membership_type)
     user.account_status = request.form.get('account_status', user.account_status)
     user.is_admin = request.form.get('is_admin') == 'on'
     user.email_verified = request.form.get('email_verified') == 'on'
