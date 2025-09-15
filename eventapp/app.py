@@ -19,6 +19,7 @@ import io
 import os
 import uuid
 import shutil
+import json
 from datetime import datetime, timedelta
 from werkzeug.utils import secure_filename
 from email.mime.text import MIMEText
@@ -95,6 +96,27 @@ login_manager.login_view = 'login'
 if STRIPE_AVAILABLE and app.config.get('STRIPE_SECRET_KEY'):
     stripe.api_key = app.config['STRIPE_SECRET_KEY']
 
+# Language configuration
+SUPPORTED_LANGUAGES = {
+    'en': 'English',
+    'zh': '中文'
+}
+
+# Import translations from separate file
+from translations import TRANSLATIONS
+
+def get_current_language():
+    """Get current language from session or user preference."""
+    if current_user.is_authenticated and current_user.locale:
+        return current_user.locale
+    return session.get('language', 'en')
+
+def get_translation(key, language=None):
+    """Get translation for a key in the specified language."""
+    if language is None:
+        language = get_current_language()
+    return TRANSLATIONS.get(language, TRANSLATIONS['en']).get(key, key)
+
 # Make helper functions and config available to templates
 @app.context_processor
 def inject_helpers():
@@ -103,7 +125,10 @@ def inject_helpers():
         'get_currency_info': get_currency_info,
         'stripe_publishable_key': app.config.get('STRIPE_PUBLISHABLE_KEY', ''),
         'default_currency': app.config.get('DEFAULT_CURRENCY', 'SGD'),
-        'default_country': app.config.get('DEFAULT_COUNTRY', 'Singapore')
+        'default_country': app.config.get('DEFAULT_COUNTRY', 'Singapore'),
+        'get_current_language': get_current_language,
+        'get_translation': get_translation,
+        'supported_languages': SUPPORTED_LANGUAGES
     }
 
 # Membership grade configuration (for admin management)
@@ -229,7 +254,7 @@ class User(UserMixin, db.Model):
     privacy_show_city = db.Column(db.Boolean, default=True)
     privacy_show_full_name = db.Column(db.Boolean, default=True)
     account_status = db.Column(db.String(20), default='active')
-    email_verified = db.Column(db.Boolean, default=True)
+    email_verified = db.Column(db.Boolean, default=False)
     email_verification_token = db.Column(db.String(100), nullable=True)
     email_verification_sent_at = db.Column(db.DateTime, nullable=True)
     password_reset_token = db.Column(db.String(100), nullable=True)
@@ -237,17 +262,25 @@ class User(UserMixin, db.Model):
     membership_type = db.Column(db.String(20), default='NA')  # NA, 会员, 家族, 星光, 嫡传
     membership_grade = db.Column(db.String(20), default='Pending Review')  # Classic, Silver, Gold, Platinum, Diamond
     credit_point = db.Column(db.Float, default=0.0)  # Credit points for event payments
+    has_default_password = db.Column(db.Boolean, default=False)  # Track if user has default password
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     events = db.relationship('Event', backref='creator', lazy=True)
     rsvps = db.relationship('RSVP', backref='attendee', lazy=True)
     notifications = db.relationship('Notification', backref='user', lazy=True)
 
-    def set_password(self, password: str) -> None:
+    def set_password(self, password: str, is_default: bool = False) -> None:
         self.password_hash = generate_password_hash(password)
+        if is_default:
+            self.has_default_password = True
 
     def check_password(self, password: str) -> bool:
         return check_password_hash(self.password_hash, password)
+    
+    def reset_to_default_password(self, default_password: str = "Noble1319") -> str:
+        """Reset user password to a default value and mark as default."""
+        self.set_password(default_password, is_default=True)
+        return default_password
 
     def validate_email(self) -> bool:
         """Validate email format."""
@@ -358,6 +391,7 @@ class Event(db.Model):
     tags = db.Column(db.String(200), nullable=True)  # comma-separated
     price = db.Column(db.Float, default=0.0)  # Event price in USD
     status = db.Column(db.String(20), default='active')  # active/cancelled/completed
+    feedback_enabled = db.Column(db.Boolean, default=False)  # Whether feedback is enabled for this event
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -835,6 +869,30 @@ def create_notification(user_id, notification_type, title, message, payload=None
     db.session.commit()
     return notification
 
+def create_feedback_notifications_for_event(event):
+    """Create feedback notifications for all attendees when event starts."""
+    # Get all users who RSVP'd to this event (any status)
+    rsvps = RSVP.query.filter_by(event_id=event.id).all()
+    
+    for rsvp in rsvps:
+        # Check if user has already submitted feedback
+        existing_feedback = Feedback.query.filter_by(event_id=event.id, user_id=rsvp.user_id).first()
+        if not existing_feedback:
+            # Create feedback notification
+            payload = {
+                'event_id': event.id,
+                'event_name': event.name,
+                'event_date': event.start_date.isoformat() if event.start_date else None
+            }
+            
+            create_notification(
+                user_id=rsvp.user_id,
+                notification_type='feedback_request',
+                title='Event Feedback Request',
+                message=f'How was "{event.name}"? Please share your feedback to help us improve future events.',
+                payload=json.dumps(payload)
+            )
+
 
 def send_event_notification(event, notification_type, user=None):
     """Send event-related email notifications."""
@@ -982,15 +1040,27 @@ with app.app_context():
 @app.before_request
 def check_email_verification():
     """Check if logged-in user has verified their email."""
-    # Skip email verification check for now
-    # if current_user.is_authenticated and not current_user.email_verified:
-    #     # Allow access to verification-related routes
-    #     if request.endpoint in ['verify_email', 'resend_verification', 'logout']:
-    #         return
-    #     # Redirect to verification page for other routes
-    #     flash('Please verify your email address to continue using your account.', 'warning')
-    #     return redirect(url_for('resend_verification'))
-    pass
+    if current_user.is_authenticated and not current_user.email_verified:
+        # Allow users with default passwords to bypass email verification
+        if current_user.has_default_password:
+            # Skip email verification for users with default passwords
+            pass
+        else:
+            # Allow access to verification-related routes
+            if request.endpoint in ['verify_email', 'resend_verification', 'logout']:
+                return
+            # Redirect to verification page for other routes
+            flash('Please verify your email address to continue using your account.', 'warning')
+            return redirect(url_for('resend_verification'))
+    
+    # Check if user needs to change password
+    if current_user.is_authenticated and session.get('force_password_change'):
+        # Allow access to password change and logout routes
+        if request.endpoint in ['change_password', 'logout']:
+            return
+        # Redirect to password change page for other routes
+        flash('Please change your password to continue using your account.', 'warning')
+        return redirect(url_for('change_password'))
 
 
 @app.route('/')
@@ -998,6 +1068,17 @@ def index():
     """Home page showing upcoming events."""
     events = Event.query.filter(Event.status != 'cancelled').order_by(Event.start_date.asc()).all()
     return render_template('index.html', events=events)
+
+@app.route('/set_language/<language>')
+def set_language(language):
+    """Set the language preference."""
+    if language in SUPPORTED_LANGUAGES:
+        session['language'] = language
+        # Update user's locale preference if logged in
+        if current_user.is_authenticated:
+            current_user.locale = language
+            db.session.commit()
+    return redirect(request.referrer or url_for('index'))
 
 
 @app.route('/register', methods=['GET', 'POST'])
@@ -1044,15 +1125,17 @@ def register():
         
         user = User(username=username, email=email, phone=phone, membership_type=membership_type, country='Singapore')
         user.set_password(password)
+        user.email_verified = False  # Require email verification
         db.session.add(user)
         db.session.commit()
         
-        # Email verification is temporarily disabled
-        # Users are automatically verified upon registration
-        user.email_verified = True
-        flash('Registration successful! You can now log in.', 'success')
+        # Send verification email
+        if send_verification_email(user):
+            flash('Registration successful! Please check your email to verify your account before logging in.', 'success')
+        else:
+            flash('Registration successful, but failed to send verification email. Please contact support.', 'warning')
         
-        return redirect(url_for('login'))
+        return redirect(url_for('resend_verification'))
     return render_template('register.html')
 
 
@@ -1065,14 +1148,74 @@ def login():
         password = request.form.get('password')
         user = User.query.filter_by(email=email).first()
         if user and user.check_password(password):
-            # Email verification is temporarily disabled
-            # Users can login without email verification
+            # Check if user has default password - allow login without email verification
+            if user.has_default_password:
+                flash('Your password has been reset by an administrator. Please change your password for security.', 'warning')
+                session['force_password_change'] = True
+                session['user_id_for_password_change'] = user.id
+                login_user(user)
+                flash('Logged in successfully.', 'success')
+                next_page = request.args.get('next')
+                return redirect(next_page or url_for('index'))
+            
+            # Check if email is verified (only for users without default passwords)
+            if not user.email_verified:
+                flash('Please verify your email address before logging in. Check your email for a verification link.', 'warning')
+                return redirect(url_for('resend_verification'))
+            
             login_user(user)
             flash('Logged in successfully.', 'success')
             next_page = request.args.get('next')
             return redirect(next_page or url_for('index'))
         flash('Invalid email or password.', 'danger')
     return render_template('login.html')
+
+
+@app.route('/change-password', methods=['GET', 'POST'])
+@login_required
+def change_password():
+    """Change password for users with default passwords."""
+    if request.method == 'POST':
+        current_password = request.form.get('current_password')
+        new_password = request.form.get('new_password')
+        confirm_password = request.form.get('confirm_password')
+        
+        # Validation
+        if not current_password or not new_password or not confirm_password:
+            flash('All fields are required.', 'danger')
+            return render_template('change_password.html')
+        
+        if new_password != confirm_password:
+            flash('New passwords do not match.', 'danger')
+            return render_template('change_password.html')
+        
+        if len(new_password) < 6:
+            flash('New password must be at least 6 characters long.', 'danger')
+            return render_template('change_password.html')
+        
+        # Verify current password
+        if not current_user.check_password(current_password):
+            flash('Current password is incorrect.', 'danger')
+            return render_template('change_password.html')
+        
+        # Update password
+        current_user.set_password(new_password, is_default=False)
+        current_user.has_default_password = False
+        
+        # If user had a default password, also verify their email
+        if session.get('force_password_change'):
+            current_user.email_verified = True
+        
+        db.session.commit()
+        
+        # Clear the force password change session
+        session.pop('force_password_change', None)
+        session.pop('user_id_for_password_change', None)
+        
+        flash('Password changed successfully!', 'success')
+        return redirect(url_for('index'))
+    
+    return render_template('change_password.html')
 
 
 @app.route('/logout')
@@ -1125,11 +1268,11 @@ def resend_verification():
             flash('Email is already verified. You can log in.', 'info')
             return redirect(url_for('login'))
         
-        # Email verification is temporarily disabled
-        # Automatically verify the user's email
-        user.email_verified = True
-        db.session.commit()
-        flash('Account is now verified! You can log in.', 'success')
+        # Send verification email
+        if send_verification_email(user):
+            flash('Verification email sent! Please check your email and click the verification link.', 'success')
+        else:
+            flash('Failed to send verification email. Please check your email configuration or try again later.', 'danger')
         
         return render_template('resend_verification.html')
     
@@ -1163,6 +1306,30 @@ def forgot_password():
         return render_template('forgot_password.html')
     
     return render_template('forgot_password.html')
+
+
+# Admin password reset route (must be before general reset-password route)
+@app.route('/admin/members/<int:user_id>/reset-password', methods=['POST'])
+@login_required
+def reset_member_password(user_id):
+    """Reset a member's password to default (admin only with superuser password)."""
+    if not current_user.is_admin:
+        flash('Access denied. Admin privileges required.', 'danger')
+        return redirect(url_for('admin_members'))
+    
+    user = User.query.get_or_404(user_id)
+    superuser_password = request.form.get('superuser_password')
+    
+    if not validate_superuser_password(superuser_password):
+        flash('Invalid superuser password.', 'danger')
+        return redirect(url_for('admin_members'))
+    
+    # Generate a default password
+    default_password = user.reset_to_default_password()
+    db.session.commit()
+    
+    flash(f'Password reset successfully for {user.username}. Default password: {default_password}. Please share this with the user via email or WhatsApp.', 'success')
+    return redirect(url_for('admin_members'))
 
 
 @app.route('/reset-password/<token>', methods=['GET', 'POST'])
@@ -1434,7 +1601,9 @@ def dashboard():
 @login_required
 def my_events():
     """Shows events the user has RSVP'd to."""
-    rsvps = RSVP.query.join(Event).filter(
+    rsvps = RSVP.query.join(Event).options(
+        db.joinedload(RSVP.event).joinedload(Event.feedbacks)
+    ).filter(
         RSVP.user_id == current_user.id,
         Event.status != 'cancelled'
     ).all()
@@ -1465,6 +1634,7 @@ def update_event(event_id):
         capacity = request.form.get('capacity')
         price = request.form.get('price', 0)  # Event price
         rsvp_deadline_str = request.form.get('rsvp_deadline')
+        feedback_enabled = request.form.get('feedback_enabled') == 'on'  # Checkbox value
         
         # Handle image upload
         if 'cover_image' in request.files:
@@ -1526,10 +1696,17 @@ def update_event(event_id):
         event.capacity = capacity_int
         event.price = price_float
         event.rsvp_deadline = rsvp_deadline
+        # Check if feedback was just enabled
+        feedback_just_enabled = not event.feedback_enabled and feedback_enabled
+        event.feedback_enabled = feedback_enabled
         db.session.commit()
         
         # Send notifications to attendees about update
         send_event_notification(event, 'event_updated')
+        
+        # If feedback was just enabled, send feedback notifications to all attendees
+        if feedback_just_enabled:
+            create_feedback_notifications_for_event(event)
         
         flash('Event updated successfully.', 'success')
         return redirect(url_for('event_detail', event_id=event.id))
@@ -1637,6 +1814,75 @@ def admin_members():
     return render_template('admin_members.html', members=members, grade_stats=grade_stats, get_membership_type_info=get_membership_type_info, MEMBERSHIP_TYPES=MEMBERSHIP_TYPES)
 
 
+@app.route('/admin/members/export')
+@login_required
+def export_members():
+    """Export all member data to CSV (admin only)."""
+    if not current_user.is_admin:
+        flash('Access denied. Admin privileges required.', 'danger')
+        return redirect(url_for('index'))
+    
+    import csv
+    import io
+    from flask import make_response
+    
+    # Get all users
+    members = User.query.all()
+    
+    # Create CSV in memory
+    output = io.StringIO()
+    writer = csv.writer(output)
+    
+    # Write header row
+    headers = [
+        'ID', 'Username', 'First Name', 'Last Name', 'Email', 'Phone', 
+        'Country', 'City', 'Timezone', 'Locale', 'Membership Type', 'Membership Grade',
+        'Credit Points', 'Account Status', 'Email Verified', 'Is Admin',
+        'Email Notifications', 'Push Notifications', 'SMS Notifications',
+        'Time Format 24h', 'Privacy Show City', 'Privacy Show Full Name',
+        'Has Default Password', 'Created At'
+    ]
+    writer.writerow(headers)
+    
+    # Write member data
+    for member in members:
+        row = [
+            member.id,
+            member.username,
+            member.first_name or '',
+            member.last_name or '',
+            member.email,
+            member.phone or '',
+            member.country or '',
+            member.city or '',
+            member.timezone or '',
+            member.locale or '',
+            member.membership_type or '',
+            member.membership_grade or '',
+            member.credit_point or 0.0,
+            member.account_status or '',
+            'Yes' if member.email_verified else 'No',
+            'Yes' if member.is_admin else 'No',
+            'Yes' if member.email_notifications else 'No',
+            'Yes' if member.push_notifications else 'No',
+            'Yes' if member.sms_notifications else 'No',
+            'Yes' if member.time_format_24h else 'No',
+            'Yes' if member.privacy_show_city else 'No',
+            'Yes' if member.privacy_show_full_name else 'No',
+            'Yes' if member.has_default_password else 'No',
+            member.created_at.strftime('%Y-%m-%d %H:%M:%S') if member.created_at else ''
+        ]
+        writer.writerow(row)
+    
+    # Prepare response
+    output.seek(0)
+    response = make_response(output.getvalue())
+    response.headers['Content-Type'] = 'text/csv'
+    response.headers['Content-Disposition'] = f'attachment; filename=members_export_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv'
+    
+    return response
+
+
 @app.route('/admin/members/<int:user_id>/update_grade', methods=['POST'])
 @login_required
 def update_member_grade(user_id):
@@ -1713,6 +1959,10 @@ def validate_superuser():
             db.session.commit()
             
             return jsonify({'success': True, 'message': 'Member updated successfully'})
+    
+    # If it's a password reset action, just validate the password
+    if action == 'reset_password':
+        return jsonify({'success': True, 'message': 'Password reset authorized'})
     
     return jsonify({'success': True})
 
@@ -1878,6 +2128,58 @@ def mark_all_notifications_read():
     return jsonify({'success': True})
 
 
+@app.route('/event/<int:event_id>/feedback-form')
+@login_required
+def event_feedback_form(event_id):
+    """Get feedback form for modal."""
+    event = Event.query.get_or_404(event_id)
+    
+    # Check if event is cancelled
+    if event.status == 'cancelled':
+        return '<div class="alert alert-warning">Cannot provide feedback for a cancelled event.</div>'
+    
+    # Check if user has already submitted feedback
+    existing_feedback = Feedback.query.filter_by(event_id=event_id, user_id=current_user.id).first()
+    if existing_feedback:
+        return '<div class="alert alert-info">You have already submitted feedback for this event.</div>'
+    
+    # Check if user has RSVP'd to this event (any status)
+    rsvp = RSVP.query.filter_by(event_id=event_id, user_id=current_user.id).first()
+    if not rsvp:
+        return '<div class="alert alert-warning">You can only provide feedback for events you have RSVP\'d to.</div>'
+    
+    return render_template('feedback_form.html', event=event)
+
+@app.route('/feedback/<int:event_id>')
+@login_required
+def feedback_page(event_id):
+    """Dedicated feedback page for users."""
+    event = Event.query.get_or_404(event_id)
+    
+    # Check if event is cancelled
+    if event.status == 'cancelled':
+        flash('Cannot provide feedback for a cancelled event.', 'warning')
+        return redirect(url_for('index'))
+    
+    # Check if feedback is enabled for this event
+    if not event.feedback_enabled:
+        flash('Feedback is not enabled for this event.', 'warning')
+        return redirect(url_for('index'))
+    
+    # Check if user has already submitted feedback
+    existing_feedback = Feedback.query.filter_by(event_id=event_id, user_id=current_user.id).first()
+    if existing_feedback:
+        flash('You have already submitted feedback for this event.', 'info')
+        return redirect(url_for('index'))
+    
+    # Check if user has RSVP'd to this event (any status)
+    rsvp = RSVP.query.filter_by(event_id=event_id, user_id=current_user.id).first()
+    if not rsvp:
+        flash('You can only provide feedback for events you have RSVP\'d to.', 'warning')
+        return redirect(url_for('index'))
+    
+    return render_template('feedback_page.html', event=event)
+
 @app.route('/event/<int:event_id>/feedback', methods=['GET', 'POST'])
 @login_required
 def event_feedback(event_id):
@@ -1895,10 +2197,10 @@ def event_feedback(event_id):
         flash('You have already submitted feedback for this event.', 'info')
         return redirect(url_for('event_detail', event_id=event_id))
     
-    # Check if user attended the event (has RSVP with accepted status)
-    rsvp = RSVP.query.filter_by(event_id=event_id, user_id=current_user.id, status='accepted').first()
+    # Check if user has RSVP'd to this event (any status)
+    rsvp = RSVP.query.filter_by(event_id=event_id, user_id=current_user.id).first()
     if not rsvp:
-        flash('Only attendees can provide feedback for this event.', 'warning')
+        flash('You can only provide feedback for events you have RSVP\'d to.', 'warning')
         return redirect(url_for('event_detail', event_id=event_id))
     
     if request.method == 'POST':
@@ -1938,6 +2240,22 @@ def event_feedback(event_id):
     
     return render_template('feedback.html', event=event)
 
+
+@app.route('/admin/event/<int:event_id>/send-feedback-notifications', methods=['POST'])
+@login_required
+def send_feedback_notifications(event_id):
+    """Send feedback notifications for an event (admin only)."""
+    if not current_user.is_admin:
+        flash('Access denied. Admin privileges required.', 'danger')
+        return redirect(url_for('index'))
+    
+    event = Event.query.get_or_404(event_id)
+    
+    # Create feedback notifications for all attendees
+    create_feedback_notifications_for_event(event)
+    
+    flash(f'Feedback notifications sent to all attendees of "{event.name}".', 'success')
+    return redirect(url_for('event_detail', event_id=event_id))
 
 @app.route('/admin/feedback-analytics')
 @login_required

@@ -20,9 +20,9 @@
     <!-- Hero Section for non-authenticated users -->
     <div class="jumbotron hero-section text-white mb-4">
       <div class="container">
-        <h1 class="display-4">Welcome to Noble Quest</h1>
-        <p class="lead">Discover, create, and manage educational events with ease. RSVP to events and get your QR code for seamless check-ins.</p>
-        <a class="btn btn-light btn-lg" href="{{ url_for('register') }}" role="button">Get Started</a>
+        <h1 class="display-4">{{ get_translation('welcome') }}</h1>
+        <p class="lead">{{ get_translation('welcome_subtitle') }}</p>
+        <a class="btn btn-light btn-lg" href="{{ url_for('register') }}" role="button">{{ get_translation('create_account') }}</a>
       </div>
     </div>
   {% endif %}

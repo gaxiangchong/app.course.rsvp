@@ -1,133 +1,128 @@
 #!/usr/bin/env python3
 """
-Create Admin User Script for PythonAnywhere
-This script creates an admin user with a password for your EventApp.
+Simple script to create an admin user for EventApp.
+This script creates an admin user interactively.
 """
 
 import os
 import sys
-import getpass
+import re
+from getpass import getpass
 
 # Add the current directory to Python path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 def create_admin_user():
-    """Create an admin user with password."""
-    print("👤 Creating Admin User for EventApp")
-    print("=" * 50)
+    """Create an admin user interactively."""
+    print("🔧 EventApp Admin User Setup")
+    print("=" * 40)
     
     try:
-        # Import Flask app components
         from app import app, db, User
         
         with app.app_context():
-            # Check if admin user already exists
-            existing_admin = User.query.filter_by(username='admin').first()
-            
+            # Check if admin already exists
+            existing_admin = User.query.filter_by(is_admin=True).first()
             if existing_admin:
-                print("⚠️  Admin user already exists!")
-                update = input("Do you want to update the admin password? (y/N): ").strip().lower()
-                
-                if update == 'y':
-                    # Get new password
-                    password = getpass.getpass("Enter new admin password: ")
-                    if not password:
-                        print("❌ Password cannot be empty!")
-                        return False
-                    
-                    # Update password
-                    existing_admin.set_password(password)
-                    existing_admin.email_verified = True
-                    existing_admin.membership_type = 'NA'
-                    existing_admin.membership_grade = 'Pending Review'
-                    db.session.commit()
-                    
-                    print("✅ Admin password updated successfully!")
-                    print(f"   Username: admin")
-                    print(f"   Email: {existing_admin.email}")
-                    return True
-                else:
-                    print("⏸️  Admin user creation cancelled")
-                    return False
+                print(f"✅ Admin user already exists: {existing_admin.username} ({existing_admin.email})")
+                response = input("Do you want to create another admin user? (y/N): ")
+                if response.lower() != 'y':
+                    print("Exiting...")
+                    return
             
             # Get admin details
-            print("📝 Enter admin user details:")
-            
-            username = input("Username (default: admin): ").strip()
+            print("\n📝 Enter admin user details:")
+            username = input("Username: ").strip()
             if not username:
-                username = 'admin'
+                print("❌ Username cannot be empty!")
+                return
             
-            email = input("Email address: ").strip()
+            email = input("Email: ").strip().lower()
             if not email:
-                print("❌ Email is required!")
-                return False
+                print("❌ Email cannot be empty!")
+                return
             
-            password = getpass.getpass("Password: ")
+            # Validate email format
+            if not re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', email):
+                print("❌ Invalid email format!")
+                return
+            
+            # Check if email already exists
+            existing_user = User.query.filter_by(email=email).first()
+            if existing_user:
+                print(f"❌ User with email {email} already exists!")
+                return
+            
+            # Get password
+            password = getpass("Password: ")
             if not password:
-                print("❌ Password is required!")
-                return False
+                print("❌ Password cannot be empty!")
+                return
+            
+            if len(password) < 6:
+                print("❌ Password must be at least 6 characters long!")
+                return
+            
+            confirm_password = getpass("Confirm password: ")
+            if password != confirm_password:
+                print("❌ Passwords do not match!")
+                return
+            
+            # Get phone number
+            phone = input("Phone number (optional): ").strip()
+            
+            # Get membership type
+            print("\n📋 Membership Type Options:")
+            print("1. NA")
+            print("2. 会员")
+            print("3. 家族")
+            print("4. 星光")
+            print("5. 嫡传")
+            
+            membership_choice = input("Select membership type (1-5, default: 1): ").strip()
+            membership_types = {
+                '1': 'NA',
+                '2': '会员',
+                '3': '家族',
+                '4': '星光',
+                '5': '嫡传'
+            }
+            membership_type = membership_types.get(membership_choice, 'NA')
             
             # Create admin user
             admin_user = User(
                 username=username,
                 email=email,
-                is_admin=True,
-                email_verified=True,
-                account_status='active',
-                membership_type='NA',
+                phone=phone or None,
+                membership_type=membership_type,
                 membership_grade='Pending Review',
+                is_admin=True,
+                email_verified=True,  # Admin users are auto-verified
+                account_status='active',
+                has_default_password=False,  # Admin sets their own password
                 country='Singapore'
             )
-            
-            # Set password
             admin_user.set_password(password)
             
             # Add to database
             db.session.add(admin_user)
             db.session.commit()
             
-            print("\n✅ Admin user created successfully!")
-            print(f"   Username: {username}")
-            print(f"   Email: {email}")
-            print(f"   Admin privileges: Yes")
-            print(f"   Email verified: Yes")
-            print(f"   Account status: Active")
-            
-            return True
+            print("\n" + "=" * 40)
+            print("🎉 ADMIN USER CREATED SUCCESSFULLY!")
+            print("=" * 40)
+            print(f"✅ Username: {username}")
+            print(f"✅ Email: {email}")
+            print(f"✅ Membership Type: {membership_type}")
+            print(f"✅ Admin Privileges: Yes")
+            print(f"✅ Email Verified: Yes")
+            print("\n🚀 You can now login with these credentials!")
             
     except ImportError as e:
         print(f"❌ Import error: {e}")
-        print("💡 Make sure you're running this from the correct directory")
-        return False
+        print("   Make sure you're in the eventapp directory and Flask is installed")
     except Exception as e:
         print(f"❌ Error creating admin user: {e}")
-        return False
 
-def main():
-    print("🔐 EventApp Admin User Setup")
-    print("=" * 60)
-    print("This script will create an admin user for your EventApp.")
-    print("The admin user will have full access to manage events and users.")
-    print()
-    
-    # Check if we're in the right directory
-    if not os.path.exists('app.py'):
-        print("❌ app.py not found!")
-        print("💡 Make sure you're running this from the eventapp directory")
-        return
-    
-    if not os.path.exists('instance/eventapp.db'):
-        print("❌ Database not found!")
-        print("💡 Make sure the database exists. You may need to run the app first.")
-        return
-    
-    # Create admin user
-    if create_admin_user():
-        print("\n🎉 Admin user setup complete!")
-        print("🔄 You can now login to your EventApp with the admin credentials")
-    else:
-        print("\n❌ Admin user setup failed!")
-        print("💡 Please check the error messages above")
-
-if __name__ == '__main__':
-    main()
+if __name__ == "__main__":
+    create_admin_user()

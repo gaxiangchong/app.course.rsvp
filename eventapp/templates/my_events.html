@@ -56,8 +56,24 @@
               <span>Your response: {{ rsvp.status }}{% if rsvp.status == 'Accepted' and rsvp.guests %} (Guests: {{ rsvp.guests }}){% endif %}</span>
             </div>
             
-            <!-- Action Button -->
-            <a href="{{ url_for('event_detail', event_id=rsvp.event.id) }}" class="btn btn-primary btn-sm">View Event</a>
+            <!-- Action Buttons -->
+            <div class="d-flex gap-2">
+              <a href="{{ url_for('event_detail', event_id=rsvp.event.id) }}" class="btn btn-primary btn-sm">View Event</a>
+              
+              <!-- Feedback Button - Show for any RSVP when feedback is enabled by admin -->
+              {% if rsvp.event.feedback_enabled %}
+                {% set user_feedback = rsvp.event.feedbacks|selectattr('user_id', 'equalto', current_user.id)|first %}
+                {% if not user_feedback %}
+                  <a href="{{ url_for('feedback_page', event_id=rsvp.event.id) }}" class="btn btn-success btn-sm">
+                    <i class="fas fa-star mr-1"></i>{{ get_translation('feedback') }}
+                  </a>
+                {% else %}
+                  <span class="btn btn-outline-success btn-sm disabled">
+                    <i class="fas fa-check mr-1"></i>Feedback Submitted
+                  </span>
+                {% endif %}
+              {% endif %}
+            </div>
           </div>
         </div>
       {% endfor %}

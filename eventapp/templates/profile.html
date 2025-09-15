@@ -1,10 +1,10 @@
 {% extends 'base.html' %}
-{% block title %}Profile - Noble Quest{% endblock %}
+{% block title %}{{ get_translation('profile') }} - Noble Quest{% endblock %}
 {% block content %}
   <div class="welcome-section">
     <div class="d-flex justify-content-between align-items-center">
       <div>
-        <h1 class="welcome-title">My Profile</h1>
+        <h1 class="welcome-title">{{ get_translation('profile') }}</h1>
         <p class="welcome-subtitle">Manage your account settings</p>
       </div>
     </div>
@@ -31,17 +31,17 @@
           </div>
           
           <div class="form-group">
-            <label for="username">Username</label>
+            <label for="username">{{ get_translation('name') }}</label>
             <input type="text" class="form-control" id="username" name="username" value="{{ current_user.username }}" required placeholder="Choose a unique username">
           </div>
           
           <div class="form-group">
-            <label for="email">Email Address</label>
+            <label for="email">{{ get_translation('email') }}</label>
             <input type="email" class="form-control" id="email" name="email" value="{{ current_user.email }}" required placeholder="your.email@example.com">
           </div>
           
           <div class="form-group">
-            <label for="phone">Phone Number</label>
+            <label for="phone">{{ get_translation('phone_number') }}</label>
             <input type="tel" class="form-control" id="phone" name="phone" value="{{ current_user.phone or '' }}" placeholder="{{ get_currency_info(default_country).phone_placeholder }}">
           </div>
         </div>

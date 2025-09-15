@@ -1,26 +1,26 @@
 {% extends 'base.html' %}
-{% block title %}Register - EventApp{% endblock %}
+{% block title %}{{ get_translation('register') }} - EventApp{% endblock %}
 {% block content %}
   <div class="welcome-section">
-    <h1 class="welcome-title">Register</h1>
-    <p class="welcome-subtitle">Create your account</p>
+    <h1 class="welcome-title">{{ get_translation('register') }}</h1>
+    <p class="welcome-subtitle">{{ get_translation('create_account') }}</p>
   </div>
   <form method="post">
     <div class="form-group">
-      <label for="username">Name</label>
+      <label for="username">{{ get_translation('name') }}</label>
       <input type="text" class="form-control" id="username" name="username" required>
     </div>
     <div class="form-group">
-      <label for="email">Email address</label>
+      <label for="email">{{ get_translation('email') }}</label>
       <input type="email" class="form-control" id="email" name="email" required>
     </div>
     <div class="form-group">
-      <label for="phone">Phone Number</label>
+      <label for="phone">{{ get_translation('phone_number') }}</label>
       <input type="tel" class="form-control" id="phone" name="phone" required>
       <small class="form-text text-muted">Please enter your phone number.</small>
     </div>
     <div class="form-group">
-      <label for="membership_type">Membership Type</label>
+      <label for="membership_type">{{ get_translation('membership_type') }}</label>
       <select class="form-control" id="membership_type" name="membership_type" required>
         <option value="NA" selected>NA</option>
         <option value="会员">会员</option>
@@ -31,20 +31,20 @@
       <small class="form-text text-muted">Please select your membership type.</small>
     </div>
     <div class="form-group">
-      <label for="password">Password</label>
+      <label for="password">{{ get_translation('password') }}</label>
       <input type="password" class="form-control" id="password" name="password" required minlength="6">
       <small class="form-text text-muted">Password must be at least 6 characters long.</small>
     </div>
     <div class="form-group">
-      <label for="confirm_password">Confirm Password</label>
+      <label for="confirm_password">{{ get_translation('confirm_password') }}</label>
       <input type="password" class="form-control" id="confirm_password" name="confirm_password" required>
     </div>
-    <button type="submit" class="btn btn-primary">Register</button>
+    <button type="submit" class="btn btn-primary">{{ get_translation('register') }}</button>
   </form>
   <div class="mt-2">
-    <div class="alert alert-success">
-      <i class="fas fa-check-circle"></i>
-      <strong>Note:</strong> After registration, you can log in immediately. No email verification required.
+    <div class="alert alert-info">
+      <i class="fas fa-info-circle"></i>
+      <strong>Note:</strong> After registration, you will receive a verification email. Please check your email and click the verification link to activate your account.
     </div>
   </div>
   <div class="mt-2 text-center">
