@@ -547,6 +547,10 @@ $(document).ready(function() {
             "info": "Showing _START_ to _END_ of _TOTAL_ members",
             "infoEmpty": "No members found",
             "infoFiltered": "(filtered from _TOTAL_ total members)"
+        },
+        "initComplete": function() {
+            // Disable autocomplete on the search input
+            $('.dataTables_filter input').attr('autocomplete', 'off');
         }
     });
 
