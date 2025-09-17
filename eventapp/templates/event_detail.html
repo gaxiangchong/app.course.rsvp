@@ -143,6 +143,13 @@
         <button type="submit" class="btn btn-danger" onclick="return confirm('Are you sure you want to cancel this event? This action cannot be undone.')">Cancel Event</button>
       </form>
     </div>
+    <div class="btn-group mt-2" role="group">
+      <form method="post" action="{{ url_for('send_feedback_notifications', event_id=event.id) }}" style="display: inline;">
+        <button type="submit" class="btn btn-info" onclick="return confirm('Send feedback notifications to all attendees?')">
+          <i class="fas fa-star mr-1"></i>Send Feedback Notifications
+        </button>
+      </form>
+    </div>
   {% endif %}
 {% endblock %}
 

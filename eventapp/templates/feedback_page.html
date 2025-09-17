@@ -1,0 +1,278 @@
+{% extends 'base.html' %}
+{% block title %}Feedback for {{ event.name }} - EventApp{% endblock %}
+{% block content %}
+  <div class="welcome-section">
+    <div class="d-flex justify-content-between align-items-center">
+      <div>
+        <h1 class="welcome-title">
+          <i class="fas fa-star mr-2"></i>{{ get_translation('feedback') }} for {{ event.name }}
+        </h1>
+        <p class="welcome-subtitle">Share your experience and help us improve future events</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="col-md-8">
+      <div class="card">
+        <div class="card-header">
+          <h5 class="mb-0">
+            <i class="fas fa-calendar-alt mr-2"></i>Event Details
+          </h5>
+        </div>
+        <div class="card-body">
+          <div class="row">
+            <div class="col-md-6">
+              <p><strong>Date:</strong> {{ event.start_date.strftime('%Y-%m-%d %H:%M') }}</p>
+              <p><strong>Location:</strong> {{ event.location }}</p>
+            </div>
+            <div class="col-md-6">
+              <p><strong>Status:</strong> 
+                <span class="badge badge-success">Attended</span>
+              </p>
+              <p><strong>Your RSVP:</strong> 
+                <span class="badge badge-primary">Accepted</span>
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card mt-4">
+        <div class="card-header">
+          <h5 class="mb-0">
+            <i class="fas fa-comment-dots mr-2"></i>{{ get_translation('feedback') }} Form
+          </h5>
+        </div>
+        <div class="card-body">
+          <form method="post" action="{{ url_for('event_feedback', event_id=event.id) }}">
+            <!-- Overall Rating -->
+            <div class="form-group">
+              <label class="form-label">
+                <i class="fas fa-star mr-2"></i>Overall Event Rating
+                <span class="text-danger">*</span>
+              </label>
+              <div class="star-rating">
+                <input type="radio" id="overall_5" name="overall_rating" value="5" required>
+                <label for="overall_5" class="star">★</label>
+                <input type="radio" id="overall_4" name="overall_rating" value="4" required>
+                <label for="overall_4" class="star">★</label>
+                <input type="radio" id="overall_3" name="overall_rating" value="3" required>
+                <label for="overall_3" class="star">★</label>
+                <input type="radio" id="overall_2" name="overall_rating" value="2" required>
+                <label for="overall_2" class="star">★</label>
+                <input type="radio" id="overall_1" name="overall_rating" value="1" required>
+                <label for="overall_1" class="star">★</label>
+              </div>
+            </div>
+
+            <!-- Content Quality -->
+            <div class="form-group">
+              <label class="form-label">
+                <i class="fas fa-book mr-2"></i>Content Quality
+                <span class="text-danger">*</span>
+              </label>
+              <div class="star-rating">
+                <input type="radio" id="content_5" name="content_quality" value="5" required>
+                <label for="content_5" class="star">★</label>
+                <input type="radio" id="content_4" name="content_quality" value="4" required>
+                <label for="content_4" class="star">★</label>
+                <input type="radio" id="content_3" name="content_quality" value="3" required>
+                <label for="content_3" class="star">★</label>
+                <input type="radio" id="content_2" name="content_quality" value="2" required>
+                <label for="content_2" class="star">★</label>
+                <input type="radio" id="content_1" name="content_quality" value="1" required>
+                <label for="content_1" class="star">★</label>
+              </div>
+            </div>
+
+            <!-- Organization -->
+            <div class="form-group">
+              <label class="form-label">
+                <i class="fas fa-tasks mr-2"></i>Organization
+                <span class="text-danger">*</span>
+              </label>
+              <div class="star-rating">
+                <input type="radio" id="org_5" name="organization" value="5" required>
+                <label for="org_5" class="star">★</label>
+                <input type="radio" id="org_4" name="organization" value="4" required>
+                <label for="org_4" class="star">★</label>
+                <input type="radio" id="org_3" name="organization" value="3" required>
+                <label for="org_3" class="star">★</label>
+                <input type="radio" id="org_2" name="organization" value="2" required>
+                <label for="org_2" class="star">★</label>
+                <input type="radio" id="org_1" name="organization" value="1" required>
+                <label for="org_1" class="star">★</label>
+              </div>
+            </div>
+
+            <!-- Venue Rating -->
+            <div class="form-group">
+              <label class="form-label">
+                <i class="fas fa-map-marker-alt mr-2"></i>Venue
+                <span class="text-danger">*</span>
+              </label>
+              <div class="star-rating">
+                <input type="radio" id="venue_5" name="venue_rating" value="5" required>
+                <label for="venue_5" class="star">★</label>
+                <input type="radio" id="venue_4" name="venue_rating" value="4" required>
+                <label for="venue_4" class="star">★</label>
+                <input type="radio" id="venue_3" name="venue_rating" value="3" required>
+                <label for="venue_3" class="star">★</label>
+                <input type="radio" id="venue_2" name="venue_rating" value="2" required>
+                <label for="venue_2" class="star">★</label>
+                <input type="radio" id="venue_1" name="venue_rating" value="1" required>
+                <label for="venue_1" class="star">★</label>
+              </div>
+            </div>
+
+            <!-- Value for Money -->
+            <div class="form-group">
+              <label class="form-label">
+                <i class="fas fa-dollar-sign mr-2"></i>Value for Money
+                <span class="text-danger">*</span>
+              </label>
+              <div class="star-rating">
+                <input type="radio" id="value_5" name="value_for_money" value="5" required>
+                <label for="value_5" class="star">★</label>
+                <input type="radio" id="value_4" name="value_for_money" value="4" required>
+                <label for="value_4" class="star">★</label>
+                <input type="radio" id="value_3" name="value_for_money" value="3" required>
+                <label for="value_3" class="star">★</label>
+                <input type="radio" id="value_2" name="value_for_money" value="2" required>
+                <label for="value_2" class="star">★</label>
+                <input type="radio" id="value_1" name="value_for_money" value="1" required>
+                <label for="value_1" class="star">★</label>
+              </div>
+            </div>
+
+            <!-- Likelihood to Recommend -->
+            <div class="form-group">
+              <label class="form-label">
+                <i class="fas fa-thumbs-up mr-2"></i>Likelihood to Recommend
+                <span class="text-danger">*</span>
+              </label>
+              <div class="star-rating">
+                <input type="radio" id="recommend_5" name="likelihood_to_recommend" value="5" required>
+                <label for="recommend_5" class="star">★</label>
+                <input type="radio" id="recommend_4" name="likelihood_to_recommend" value="4" required>
+                <label for="recommend_4" class="star">★</label>
+                <input type="radio" id="recommend_3" name="likelihood_to_recommend" value="3" required>
+                <label for="recommend_3" class="star">★</label>
+                <input type="radio" id="recommend_2" name="likelihood_to_recommend" value="2" required>
+                <label for="recommend_2" class="star">★</label>
+                <input type="radio" id="recommend_1" name="likelihood_to_recommend" value="1" required>
+                <label for="recommend_1" class="star">★</label>
+              </div>
+            </div>
+
+            <!-- Additional Comments -->
+            <div class="form-group">
+              <label for="additional_comments" class="form-label">
+                <i class="fas fa-comment mr-2"></i>Additional Comments
+                <span class="text-muted">(Optional)</span>
+              </label>
+              <textarea class="form-control" id="additional_comments" name="additional_comments" rows="4" placeholder="Please share any additional thoughts, suggestions, or feedback about the event..."></textarea>
+            </div>
+
+            <div class="text-center mt-4">
+              <button type="submit" class="btn btn-primary btn-lg">
+                <i class="fas fa-paper-plane mr-2"></i>{{ get_translation('submit') }} {{ get_translation('feedback') }}
+              </button>
+              <a href="{{ url_for('index') }}" class="btn btn-secondary btn-lg ml-2">
+                <i class="fas fa-arrow-left mr-2"></i>{{ get_translation('back') }}
+              </a>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+    
+    <div class="col-md-4">
+      <div class="card">
+        <div class="card-header">
+          <h5 class="mb-0">
+            <i class="fas fa-info-circle mr-2"></i>Feedback Guidelines
+          </h5>
+        </div>
+        <div class="card-body">
+          <ul class="list-unstyled">
+            <li class="mb-2">
+              <i class="fas fa-check text-success mr-2"></i>
+              Be honest and constructive
+            </li>
+            <li class="mb-2">
+              <i class="fas fa-check text-success mr-2"></i>
+              Focus on your experience
+            </li>
+            <li class="mb-2">
+              <i class="fas fa-check text-success mr-2"></i>
+              Provide specific examples
+            </li>
+            <li class="mb-2">
+              <i class="fas fa-check text-success mr-2"></i>
+              Suggest improvements
+            </li>
+            <li class="mb-2">
+              <i class="fas fa-check text-success mr-2"></i>
+              Be respectful and professional
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="card mt-3">
+        <div class="card-header">
+          <h5 class="mb-0">
+            <i class="fas fa-shield-alt mr-2"></i>Privacy
+          </h5>
+        </div>
+        <div class="card-body">
+          <p class="small text-muted">
+            Your feedback is anonymous and will be used to improve future events. 
+            We value your input and take all feedback seriously.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+{% endblock %}
+
+{% block scripts %}
+<style>
+.star-rating {
+  display: flex;
+  flex-direction: row-reverse;
+  justify-content: flex-end;
+  margin: 10px 0;
+}
+
+.star-rating input[type="radio"] {
+  display: none;
+}
+
+.star-rating label {
+  font-size: 2em;
+  color: #ddd;
+  cursor: pointer;
+  transition: color 0.2s ease;
+  margin-right: 5px;
+}
+
+.star-rating label:hover,
+.star-rating label:hover ~ label,
+.star-rating input[type="radio"]:checked ~ label {
+  color: #ffd700;
+}
+
+.star-rating input[type="radio"]:checked + label {
+  color: #ffd700;
+}
+
+.form-label {
+  font-weight: 600;
+  margin-bottom: 10px;
+  display: block;
+}
+</style>
+{% endblock %}

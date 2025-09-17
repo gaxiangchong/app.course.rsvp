@@ -1626,15 +1626,28 @@
                 <i class="fas fa-sign-out-alt"></i>
               </a>
           {% else %}
-              <a href="{{ url_for('login') }}" class="nav-link-header" title="Login">
+              <a href="{{ url_for('login') }}" class="nav-link-header" title="{{ get_translation('login') }}">
                 <i class="fas fa-sign-in-alt"></i>
-                <span>Login</span>
-              </a>
-              <a href="{{ url_for('register') }}" class="nav-link-header" title="Register">
-                <i class="fas fa-user-plus"></i>
-                <span>Register</span>
+                <span>{{ get_translation('login') }}</span>
               </a>
           {% endif %}
+          
+          <!-- Language Switch Button -->
+          <div class="language-switch">
+            <div class="dropdown">
+              <button class="btn btn-link language-btn" type="button" id="languageDropdown" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" title="{{ get_translation('language') }}">
+                <i class="fas fa-globe"></i>
+                <span class="language-code">{{ get_current_language().upper() }}</span>
+              </button>
+              <div class="dropdown-menu dropdown-menu-right" aria-labelledby="languageDropdown">
+                {% for code, name in supported_languages.items() %}
+                  <a class="dropdown-item {% if get_current_language() == code %}active{% endif %}" href="{{ url_for('set_language', language=code) }}">
+                    {{ name }}
+                  </a>
+                {% endfor %}
+              </div>
+            </div>
+          </div>
           </div>
         </div>
       </div>
@@ -1661,11 +1674,11 @@
     <div class="bottom-nav d-md-none">
       <a href="{{ url_for('index') }}" class="nav-item {% if request.endpoint == 'index' %}active{% endif %}">
         <i class="fas fa-home"></i>
-        <span>Home</span>
+        <span>{{ get_translation('home') }}</span>
       </a>
       <a href="{{ url_for('past_events') }}" class="nav-item {% if request.endpoint == 'past_events' %}active{% endif %}">
         <i class="fas fa-calendar-check"></i>
-        <span>Past Events</span>
+        <span>{{ get_translation('events') }}</span>
       </a>
       <a href="{{ url_for('notifications') }}" class="nav-item {% if request.endpoint == 'notifications' %}active{% endif %}">
         <i class="fas fa-bell"></i>
@@ -1673,7 +1686,7 @@
       </a>
       <a href="{{ url_for('profile') }}" class="nav-item {% if request.endpoint == 'profile' %}active{% endif %}">
         <i class="fas fa-user"></i>
-        <span>My Profile</span>
+        <span>{{ get_translation('profile') }}</span>
       </a>
     </div>
     {% endif %}
@@ -1751,6 +1764,81 @@
         text-decoration: none !important;
         transform: none !important;
         box-shadow: none !important;
+      }
+      
+      /* Language Switch Styles */
+      .language-switch {
+        margin-left: 10px;
+      }
+      
+      .language-btn {
+        color: var(--dark-text) !important;
+        text-decoration: none !important;
+        padding: 8px 12px !important;
+        border: 1px solid var(--dark-border) !important;
+        border-radius: 6px !important;
+        background: transparent !important;
+        transition: all 0.3s ease !important;
+        display: flex !important;
+        align-items: center !important;
+        gap: 6px !important;
+      }
+      
+      .language-btn:hover {
+        background: var(--dark-card) !important;
+        border-color: var(--accent-color) !important;
+        color: var(--accent-color) !important;
+        text-decoration: none !important;
+      }
+      
+      .language-btn:focus {
+        box-shadow: 0 0 0 2px rgba(0, 212, 255, 0.25) !important;
+        outline: none !important;
+      }
+      
+      .language-code {
+        font-size: 12px;
+        font-weight: 600;
+        min-width: 20px;
+        text-align: center;
+      }
+      
+      .dropdown-menu {
+        background: var(--dark-card) !important;
+        border: 1px solid var(--dark-border) !important;
+        border-radius: 8px !important;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
+      }
+      
+      .dropdown-item {
+        color: var(--dark-text) !important;
+        padding: 8px 16px !important;
+        transition: all 0.2s ease !important;
+      }
+      
+      .dropdown-item:hover {
+        background: var(--dark-bg) !important;
+        color: var(--accent-color) !important;
+      }
+      
+      .dropdown-item.active {
+        background: var(--accent-color) !important;
+        color: var(--dark-bg) !important;
+      }
+      
+      /* Mobile responsive */
+      @media (max-width: 768px) {
+        .language-switch {
+          margin-left: 5px;
+        }
+        
+        .language-btn {
+          padding: 6px 8px !important;
+        }
+        
+        .language-code {
+          font-size: 10px;
+        }
       }
     </style>
     
