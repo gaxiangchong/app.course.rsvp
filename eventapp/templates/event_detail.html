@@ -36,13 +36,11 @@
       <label for="status">Your response</label>
       <select class="form-control" id="status" name="status" required>
         <option value="Accepted" {% if rsvp and rsvp.status == 'Accepted' %}selected{% endif %}>Accept</option>
-        <option value="Maybe" {% if rsvp and rsvp.status == 'Maybe' %}selected{% endif %}>Maybe</option>
         <option value="Declined" {% if rsvp and rsvp.status == 'Declined' %}selected{% endif %}>Decline</option>
       </select>
     </div>
     <div class="form-group">
-      <label for="guests">Number of additional guests</label>
-      <input type="number" class="form-control" id="guests" name="guests" min="0" value="{{ rsvp.guests if rsvp else 0 }}">
+      <!-- Additional guests field removed to discourage non-registered attendees -->
     </div>
     
     {# Payment section - only show for Accepted status #}

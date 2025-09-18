@@ -18,20 +18,20 @@
           <div class="row">
             <div class="col-md-6">
               <div class="form-group">
-                <label for="first_name">First Name</label>
+                <label for="first_name">{{ get_translation('First Name') }}</label>
                 <input type="text" class="form-control" id="first_name" name="first_name" value="{{ current_user.first_name or '' }}" placeholder="Enter your first name">
               </div>
             </div>
             <div class="col-md-6">
               <div class="form-group">
-                <label for="last_name">Last Name</label>
+                <label for="last_name">{{ get_translation('Last Name') }}</label>
                 <input type="text" class="form-control" id="last_name" name="last_name" value="{{ current_user.last_name or '' }}" placeholder="Enter your last name">
               </div>
             </div>
           </div>
           
           <div class="form-group">
-            <label for="username">{{ get_translation('name') }}</label>
+            <label for="username">{{ get_translation('user name') }}</label>
             <input type="text" class="form-control" id="username" name="username" value="{{ current_user.username }}" required placeholder="Choose a unique username">
           </div>
           
@@ -48,11 +48,11 @@
         
         <!-- Location Information Section -->
         <div class="form-section">
-          <h5><i class="fas fa-map-marker-alt mr-2"></i>Location Information</h5>
+          <h5><i class="fas fa-map-marker-alt mr-2"></i>{{ get_translation('Location') }}</h5>
           <div class="row">
             <div class="col-md-6">
               <div class="form-group">
-                <label for="country">Country</label>
+                <label for="country">{{ get_translation('Country') }}</label>
                 <select class="form-control" id="country" name="country" onchange="updateCurrencyAndPlaceholders()">
                   <option value="Singapore" {% if current_user.country == 'Singapore' or not current_user.country or current_user.country == '' %}selected{% endif %}>Singapore</option>
                   <option value="Malaysia" {% if current_user.country == 'Malaysia' %}selected{% endif %}>Malaysia</option>

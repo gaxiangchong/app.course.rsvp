@@ -241,6 +241,7 @@ class User(UserMixin, db.Model):
     email = db.Column(db.String(120), unique=True, nullable=False)
     password_hash = db.Column(db.String(128), nullable=False)
     phone = db.Column(db.String(20), nullable=True)
+    country_code = db.Column(db.String(5), nullable=True)  # Country code like +65, +1, etc.
     timezone = db.Column(db.String(50), default='UTC')
     locale = db.Column(db.String(10), default='en')
     country = db.Column(db.String(50), nullable=True)
@@ -570,6 +571,34 @@ class Feedback(db.Model):
     # Relationships
     event = db.relationship('Event', backref='feedbacks', lazy=True)
     user = db.relationship('User', backref='feedbacks', lazy=True)
+
+
+class EventFeedbackForm(db.Model):
+    """Represents a Microsoft Forms feedback form configuration for an event.
+    
+    Attributes:
+        id (int): primary key.
+        event_id (int): associated event.
+        form_name (str): name/title of the feedback form.
+        ms_form_id (str): Microsoft Forms form ID.
+        ms_form_url (str): Microsoft Forms embed URL.
+        is_active (bool): whether this form is currently active.
+        created_by (int): user who created this form.
+        created_at (datetime): when form was created.
+    """
+    
+    id = db.Column(db.Integer, primary_key=True)
+    event_id = db.Column(db.Integer, db.ForeignKey('event.id'), nullable=False)
+    form_name = db.Column(db.String(200), nullable=False)
+    ms_form_id = db.Column(db.String(100), nullable=False)  # MS Forms form ID
+    ms_form_url = db.Column(db.Text, nullable=False)  # MS Forms embed URL
+    is_active = db.Column(db.Boolean, default=True)
+    created_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Relationships
+    event = db.relationship('Event', backref='feedback_forms', lazy=True)
+    creator = db.relationship('User', backref='created_feedback_forms', lazy=True)
 
 
 @login_manager.user_loader
@@ -1088,6 +1117,7 @@ def register():
     if request.method == 'POST':
         username = request.form.get('username', '').strip()
         email = request.form.get('email', '').strip().lower()
+        country_code = request.form.get('country_code', '+65').strip()
         phone = request.form.get('phone', '').strip()
         membership_type = request.form.get('membership_type', 'NA').strip()
         password = request.form.get('password')
@@ -1103,8 +1133,12 @@ def register():
             errors.append('Please enter a valid email address.')
         if not phone:
             errors.append('Phone number is required.')
-        elif not re.match(r'^[\+]?[1-9][\d]{0,15}$', phone.replace(' ', '').replace('-', '')):
-            errors.append('Please enter a valid phone number.')
+        elif not re.match(r'^[0-9]{7,15}$', phone.replace(' ', '').replace('-', '')):
+            errors.append('Please enter a valid phone number (7-15 digits).')
+        if not country_code:
+            errors.append('Country code is required.')
+        elif not re.match(r'^\+[1-9][0-9]{0,3}$', country_code):
+            errors.append('Please enter a valid country code (e.g., +65, +1).')
         if not membership_type:
             errors.append('Membership type is required.')
         elif membership_type not in MEMBERSHIP_TYPES:
@@ -1123,7 +1157,7 @@ def register():
             flash('Email already registered.', 'danger')
             return redirect(url_for('register'))
         
-        user = User(username=username, email=email, phone=phone, membership_type=membership_type, country='Singapore')
+        user = User(username=username, email=email, phone=phone, country_code=country_code, membership_type=membership_type, country='Singapore')
         user.set_password(password)
         user.email_verified = False  # Require email verification
         db.session.add(user)
@@ -2153,7 +2187,7 @@ def event_feedback_form(event_id):
 @app.route('/feedback/<int:event_id>')
 @login_required
 def feedback_page(event_id):
-    """Dedicated feedback page for users."""
+    """Dedicated feedback page for users with MS Forms."""
     event = Event.query.get_or_404(event_id)
     
     # Check if event is cancelled
@@ -2166,79 +2200,26 @@ def feedback_page(event_id):
         flash('Feedback is not enabled for this event.', 'warning')
         return redirect(url_for('index'))
     
-    # Check if user has already submitted feedback
-    existing_feedback = Feedback.query.filter_by(event_id=event_id, user_id=current_user.id).first()
-    if existing_feedback:
-        flash('You have already submitted feedback for this event.', 'info')
-        return redirect(url_for('index'))
-    
     # Check if user has RSVP'd to this event (any status)
     rsvp = RSVP.query.filter_by(event_id=event_id, user_id=current_user.id).first()
     if not rsvp:
         flash('You can only provide feedback for events you have RSVP\'d to.', 'warning')
         return redirect(url_for('index'))
     
-    return render_template('feedback_page.html', event=event)
+    # Get active feedback forms for this event
+    feedback_forms = EventFeedbackForm.query.filter_by(event_id=event_id, is_active=True).all()
+    
+    if not feedback_forms:
+        flash('No feedback forms are available for this event.', 'warning')
+        return redirect(url_for('index'))
+    
+    return render_template('feedback_page_msforms.html', event=event, feedback_forms=feedback_forms)
 
 @app.route('/event/<int:event_id>/feedback', methods=['GET', 'POST'])
 @login_required
 def event_feedback(event_id):
-    """View and submit feedback for an event."""
-    event = Event.query.get_or_404(event_id)
-    
-    # Check if event is cancelled
-    if event.status == 'cancelled':
-        flash('Cannot provide feedback for a cancelled event.', 'warning')
-        return redirect(url_for('index'))
-    
-    # Check if user has already submitted feedback
-    existing_feedback = Feedback.query.filter_by(event_id=event_id, user_id=current_user.id).first()
-    if existing_feedback:
-        flash('You have already submitted feedback for this event.', 'info')
-        return redirect(url_for('event_detail', event_id=event_id))
-    
-    # Check if user has RSVP'd to this event (any status)
-    rsvp = RSVP.query.filter_by(event_id=event_id, user_id=current_user.id).first()
-    if not rsvp:
-        flash('You can only provide feedback for events you have RSVP\'d to.', 'warning')
-        return redirect(url_for('event_detail', event_id=event_id))
-    
-    if request.method == 'POST':
-        # Get form data
-        overall_rating = int(request.form.get('overall_rating'))
-        content_quality = int(request.form.get('content_quality'))
-        organization = int(request.form.get('organization'))
-        venue_rating = int(request.form.get('venue_rating'))
-        value_for_money = int(request.form.get('value_for_money'))
-        likelihood_to_recommend = int(request.form.get('likelihood_to_recommend'))
-        additional_comments = request.form.get('additional_comments', '').strip()
-        
-        # Validate ratings (1-5)
-        ratings = [overall_rating, content_quality, organization, venue_rating, value_for_money, likelihood_to_recommend]
-        if not all(1 <= rating <= 5 for rating in ratings):
-            flash('All ratings must be between 1 and 5.', 'danger')
-            return render_template('feedback.html', event=event)
-        
-        # Create feedback
-        feedback = Feedback(
-            event_id=event_id,
-            user_id=current_user.id,
-            overall_rating=overall_rating,
-            content_quality=content_quality,
-            organization=organization,
-            venue_rating=venue_rating,
-            value_for_money=value_for_money,
-            likelihood_to_recommend=likelihood_to_recommend,
-            additional_comments=additional_comments if additional_comments else None
-        )
-        
-        db.session.add(feedback)
-        db.session.commit()
-        
-        flash('Thank you for your feedback! Your input helps us improve our events.', 'success')
-        return redirect(url_for('event_detail', event_id=event_id))
-    
-    return render_template('feedback.html', event=event)
+    """Redirect to MS Forms feedback page."""
+    return redirect(url_for('feedback_page', event_id=event_id))
 
 
 @app.route('/admin/event/<int:event_id>/send-feedback-notifications', methods=['POST'])
@@ -2260,47 +2241,105 @@ def send_feedback_notifications(event_id):
 @app.route('/admin/feedback-analytics')
 @login_required
 def feedback_analytics():
-    """Admin feedback analytics page."""
+    """Admin feedback analytics page with Microsoft Forms."""
     if not current_user.is_admin:
         flash('Only administrators can view feedback analytics.', 'danger')
         return redirect(url_for('index'))
     
-    # Get all events with feedback
-    events_with_feedback = db.session.query(Event).join(Feedback).distinct().all()
+    # Get all events with their feedback forms
+    events = Event.query.filter(Event.status != 'cancelled').order_by(Event.start_date.desc()).all()
     
-    # Calculate analytics for each event
-    event_analytics = []
-    for event in events_with_feedback:
-        feedbacks = Feedback.query.filter_by(event_id=event.id).all()
+    # Get feedback forms for each event
+    event_forms = []
+    for event in events:
+        feedback_forms = EventFeedbackForm.query.filter_by(event_id=event.id, is_active=True).all()
+        event_forms.append({
+            'event': event,
+            'feedback_forms': feedback_forms
+        })
+    
+    return render_template('feedback_analytics.html', event_forms=event_forms)
+
+
+@app.route('/admin/feedback-forms/add', methods=['GET', 'POST'])
+@login_required
+def add_feedback_form():
+    """Add a new Microsoft Forms feedback form for an event."""
+    if not current_user.is_admin:
+        flash('Only administrators can manage feedback forms.', 'danger')
+        return redirect(url_for('index'))
+    
+    if request.method == 'POST':
+        event_id = request.form.get('event_id')
+        form_name = request.form.get('form_name', '').strip()
+        ms_form_id = request.form.get('ms_form_id', '').strip()
+        ms_form_url = request.form.get('ms_form_url', '').strip()
         
-        if feedbacks:
-            # Calculate averages
-            avg_overall = sum(f.overall_rating for f in feedbacks) / len(feedbacks)
-            avg_content = sum(f.content_quality for f in feedbacks) / len(feedbacks)
-            avg_organization = sum(f.organization for f in feedbacks) / len(feedbacks)
-            avg_venue = sum(f.venue_rating for f in feedbacks) / len(feedbacks)
-            avg_value = sum(f.value_for_money for f in feedbacks) / len(feedbacks)
-            avg_recommend = sum(f.likelihood_to_recommend for f in feedbacks) / len(feedbacks)
-            
-            # Get comments
-            comments = [f.additional_comments for f in feedbacks if f.additional_comments]
-            
-            event_analytics.append({
-                'event': event,
-                'feedback_count': len(feedbacks),
-                'avg_overall': round(avg_overall, 1),
-                'avg_content': round(avg_content, 1),
-                'avg_organization': round(avg_organization, 1),
-                'avg_venue': round(avg_venue, 1),
-                'avg_value': round(avg_value, 1),
-                'avg_recommend': round(avg_recommend, 1),
-                'comments': comments
-            })
+        # Validation
+        if not event_id or not form_name or not ms_form_id or not ms_form_url:
+            flash('All fields are required.', 'danger')
+            return redirect(url_for('add_feedback_form'))
+        
+        # Validate event exists
+        event = Event.query.get(event_id)
+        if not event:
+            flash('Event not found.', 'danger')
+            return redirect(url_for('add_feedback_form'))
+        
+        # Create new feedback form
+        feedback_form = EventFeedbackForm(
+            event_id=event_id,
+            form_name=form_name,
+            ms_form_id=ms_form_id,
+            ms_form_url=ms_form_url,
+            created_by=current_user.id
+        )
+        
+        db.session.add(feedback_form)
+        db.session.commit()
+        
+        flash(f'Feedback form "{form_name}" added successfully for event "{event.name}".', 'success')
+        return redirect(url_for('feedback_analytics'))
     
-    # Sort by feedback count (most feedback first)
-    event_analytics.sort(key=lambda x: x['feedback_count'], reverse=True)
+    # GET request - show form
+    events = Event.query.filter(Event.status != 'cancelled').order_by(Event.start_date.desc()).all()
+    return render_template('add_feedback_form.html', events=events)
+
+
+@app.route('/admin/feedback-forms/<int:form_id>/toggle', methods=['POST'])
+@login_required
+def toggle_feedback_form(form_id):
+    """Toggle feedback form active status."""
+    if not current_user.is_admin:
+        flash('Only administrators can manage feedback forms.', 'danger')
+        return redirect(url_for('index'))
     
-    return render_template('feedback_analytics.html', event_analytics=event_analytics)
+    feedback_form = EventFeedbackForm.query.get_or_404(form_id)
+    feedback_form.is_active = not feedback_form.is_active
+    db.session.commit()
+    
+    status = 'activated' if feedback_form.is_active else 'deactivated'
+    flash(f'Feedback form "{feedback_form.form_name}" {status}.', 'success')
+    return redirect(url_for('feedback_analytics'))
+
+
+@app.route('/admin/feedback-forms/<int:form_id>/delete', methods=['POST'])
+@login_required
+def delete_feedback_form(form_id):
+    """Delete a feedback form."""
+    if not current_user.is_admin:
+        flash('Only administrators can manage feedback forms.', 'danger')
+        return redirect(url_for('index'))
+    
+    feedback_form = EventFeedbackForm.query.get_or_404(form_id)
+    form_name = feedback_form.form_name
+    event_name = feedback_form.event.name
+    
+    db.session.delete(feedback_form)
+    db.session.commit()
+    
+    flash(f'Feedback form "{form_name}" deleted from event "{event_name}".', 'success')
+    return redirect(url_for('feedback_analytics'))
 
 
 @app.route('/event/<int:event_id>/cancel', methods=['POST'])
