@@ -87,23 +87,6 @@
                   </div>
                 </div>
                 <div class="detail-item">
-                  <i class="fas fa-clock"></i>
-                  <div class="detail-content">
-                    <span class="detail-label">Time</span>
-                    <span class="detail-value">{{ event.start_date.strftime('%I:%M %p') }}{% if event.end_date %} - {{ event.end_date.strftime('%I:%M %p') }}{% endif %}</span>
-                  </div>
-                </div>
-              </div>
-              
-              <div class="detail-row">
-                <div class="detail-item">
-                  <i class="fas fa-map-marker-alt"></i>
-                  <div class="detail-content">
-                    <span class="detail-label">Location</span>
-                    <span class="detail-value">{{ event.city or event.location }}</span>
-                  </div>
-                </div>
-                <div class="detail-item">
                   <i class="fas fa-users"></i>
                   <div class="detail-content">
                     <span class="detail-label">Attendees</span>
@@ -113,6 +96,13 @@
               </div>
               
               <div class="detail-row">
+                <div class="detail-item">
+                  <i class="fas fa-clock"></i>
+                  <div class="detail-content">
+                    <span class="detail-label">Time</span>
+                    <span class="detail-value">{{ event.start_date.strftime('%I:%M %p') }}{% if event.end_date %} - {{ event.end_date.strftime('%I:%M %p') }}{% endif %}</span>
+                  </div>
+                </div>
                 <div class="detail-item">
                   <i class="fas fa-dollar-sign"></i>
                   <div class="detail-content">
@@ -124,6 +114,16 @@
                         {{ get_currency_info(default_country).symbol }}{{ "%.2f"|format(event.price) }}
                       {% endif %}
                     </span>
+                  </div>
+                </div>
+              </div>
+              
+              <div class="detail-row">
+                <div class="detail-item">
+                  <i class="fas fa-map-marker-alt"></i>
+                  <div class="detail-content">
+                    <span class="detail-label">Location</span>
+                    <span class="detail-value">{{ event.city or event.location }}</span>
                   </div>
                 </div>
               </div>
