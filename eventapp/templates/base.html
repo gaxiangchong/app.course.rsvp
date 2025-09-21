@@ -1531,6 +1531,25 @@
         border-color: var(--dark-border);
       }
       
+      /* Event Detail Labels - Light Purple Theme */
+      .event-label {
+        color: #8B5CF6; /* Light purple */
+        font-weight: 600;
+        font-size: 0.95em;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-right: 8px;
+        display: inline-block;
+        min-width: 120px;
+      }
+      
+      /* Dark mode support for event labels */
+      @media (prefers-color-scheme: dark) {
+        .event-label {
+          color: #A78BFA; /* Slightly lighter purple for dark mode */
+        }
+      }
+      
       .action-btn {
         position: relative;
         z-index: 2;
