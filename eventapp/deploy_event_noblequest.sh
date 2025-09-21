@@ -27,11 +27,11 @@ echo "🗄️ Updating database schema..."
 python -c "from app import app, db; app.app_context().push(); db.create_all()"
 
 # Set environment variables for the new domain
-export SERVER_NAME=event.noblequest.com
+export SERVER_NAME=event.mynoblequest.com
 export APPLICATION_ROOT=/
-export DOMAIN=event.noblequest.com
-export BASE_URL=https://event.noblequest.com
+export DOMAIN=event.mynoblequest.com
+export BASE_URL=https://event.mynoblequest.com
 
 echo "✅ Deployment complete!"
-echo "🌐 Your app should be available at https://event.noblequest.com"
+echo "🌐 Your app should be available at https://event.mynoblequest.com"
 echo "🔄 Please reload your web app in PythonAnywhere dashboard"
