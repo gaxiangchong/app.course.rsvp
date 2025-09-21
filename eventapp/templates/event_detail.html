@@ -16,14 +16,14 @@
   <p><span class="event-label">Description:</span> {{ event.description }}</p>
   <p><span class="event-label">Capacity:</span> {{ event.capacity }}</p>
   <div class="event-price {% if event.price == 0 %}free{% endif %}">
-    <span class="event-label">Price:</span> 
+    <strong>Price:</strong> 
     {% if event.price == 0 %}
       FREE
     {% else %}
       {{ get_currency_info(default_country).symbol }}{{ "%.2f"|format(event.price) }}
     {% endif %}
   </div>
-  <p><span class="event-label">Accepted:</span> {{ event.accepted_count }} | <span class="event-label">Maybe:</span> {{ event.maybe_count }} | <span class="event-label">Declined:</span> {{ event.declined_count }} | <span class="event-label">Spots left:</span> {{ event.available_spots }}</p>
+  <p><span class="event-label">Spots left:</span> {{ event.available_spots }}</p>
   {% if event.rsvp_deadline %}
     <p><span class="event-label">RSVP deadline:</span> {{ event.rsvp_deadline.strftime('%Y-%m-%d %H:%M') }}</p>
   {% endif %}
@@ -49,7 +49,7 @@
       <h5>Payment</h5>
       <div class="alert alert-info">
         <i class="fas fa-info-circle mr-2"></i>
-        <span class="event-label">Event Price:</span> 
+        <strong>Event Price:</strong> 
         {% if event.price == 0 %}
           FREE
         {% else %}
@@ -76,7 +76,7 @@
       {# Credit balance display #}
       <div class="alert alert-warning" id="creditBalance">
         <i class="fas fa-wallet mr-2"></i>
-        <span class="event-label">Your Credit Balance:</span> 
+        <strong>Your Credit Balance:</strong> 
         <span id="userCredits">{{ "%.2f"|format(current_user.credit_point or 0) }}</span>
         {% if event.price > 0 and (current_user.credit_point or 0) < event.price %}
           <br><small class="text-danger">⚠️ Insufficient credits. You need {{ "%.2f"|format(event.price - (current_user.credit_point or 0)) }} more credits.</small>
