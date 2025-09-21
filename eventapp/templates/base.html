@@ -1715,17 +1715,17 @@
           {% if current_user.is_authenticated %}
             <ul class="nav-menu d-none d-lg-flex">
               <li class="nav-item-header">
-                <a href="{{ url_for('my_events') }}" class="nav-link-header admin-nav-icon {% if request.endpoint == 'my_events' %}active{% endif %}" title="My Events">
+                <a href="{{ url_for('my_events') }}" class="nav-link-header admin-nav-icon {% if request.endpoint == 'my_events' %}active{% endif %}" title="{{ get_translation('my_events') }}">
                   <i class="fas fa-calendar"></i>
                 </a>
             </li>
               <li class="nav-item-header">
-                <a href="{{ url_for('past_events') }}" class="nav-link-header admin-nav-icon {% if request.endpoint == 'past_events' %}active{% endif %}" title="Past Events">
+                <a href="{{ url_for('past_events') }}" class="nav-link-header admin-nav-icon {% if request.endpoint == 'past_events' %}active{% endif %}" title="{{ get_translation('past_events') }}">
                   <i class="fas fa-history"></i>
                 </a>
               </li>
               <li class="nav-item-header">
-                <a href="{{ url_for('notifications') }}" class="nav-link-header admin-nav-icon {% if request.endpoint == 'notifications' %}active{% endif %}" title="Notifications">
+                <a href="{{ url_for('notifications') }}" class="nav-link-header admin-nav-icon {% if request.endpoint == 'notifications' %}active{% endif %}" title="{{ get_translation('notifications') }}">
                   <i class="fas fa-bell"></i>
                   {% if current_user.notifications|selectattr('read_at', 'none')|list|length > 0 %}
                     <span class="badge badge-danger notification-badge">{{ current_user.notifications|selectattr('read_at', 'none')|list|length }}</span>
@@ -1734,27 +1734,27 @@
               </li>
               {% if current_user.is_admin %}
                 <li class="nav-item-header">
-                  <a href="{{ url_for('dashboard') }}" class="nav-link-header admin-nav-icon {% if request.endpoint == 'dashboard' %}active{% endif %}" title="Dashboard">
+                  <a href="{{ url_for('dashboard') }}" class="nav-link-header admin-nav-icon {% if request.endpoint == 'dashboard' %}active{% endif %}" title="{{ get_translation('dashboard') }}">
                     <i class="fas fa-tachometer-alt"></i>
                   </a>
                 </li>
                 <li class="nav-item-header">
-                  <a href="{{ url_for('verify_qr') }}" class="nav-link-header admin-nav-icon {% if request.endpoint == 'verify_qr' %}active{% endif %}" title="Check-In Attendees">
+                  <a href="{{ url_for('verify_qr') }}" class="nav-link-header admin-nav-icon {% if request.endpoint == 'verify_qr' %}active{% endif %}" title="{{ get_translation('check_in_attendees') }}">
                     <i class="fas fa-qrcode"></i>
                   </a>
                 </li>
                 <li class="nav-item-header">
-                  <a href="{{ url_for('analytics') }}" class="nav-link-header admin-nav-icon {% if request.endpoint == 'analytics' %}active{% endif %}" title="Analytics">
+                  <a href="{{ url_for('analytics') }}" class="nav-link-header admin-nav-icon {% if request.endpoint == 'analytics' %}active{% endif %}" title="{{ get_translation('analytics') }}">
                     <i class="fas fa-chart-bar"></i>
                   </a>
                 </li>
                 <li class="nav-item">
-                  <a href="{{ url_for('feedback_analytics') }}" class="nav-link-header admin-nav-icon {% if request.endpoint == 'feedback_analytics' %}active{% endif %}" title="Feedback Analytics">
+                  <a href="{{ url_for('feedback_analytics') }}" class="nav-link-header admin-nav-icon {% if request.endpoint == 'feedback_analytics' %}active{% endif %}" title="{{ get_translation('feedback_analytics') }}">
                     <i class="fas fa-comments"></i>
                   </a>
                 </li>
                 <li class="nav-item-header">
-                  <a href="{{ url_for('admin_members') }}" class="nav-link-header admin-nav-icon {% if request.endpoint == 'admin_members' %}active{% endif %}" title="Members">
+                  <a href="{{ url_for('admin_members') }}" class="nav-link-header admin-nav-icon {% if request.endpoint == 'admin_members' %}active{% endif %}" title="{{ get_translation('members') }}">
                     <i class="fas fa-users"></i>
                   </a>
                 </li>
@@ -1823,18 +1823,18 @@
       <!-- Mobile Collapsible Menu -->
       <div class="collapse mobile-menu d-lg-none" id="mobileMenu">
         {% if current_user.is_authenticated %}
-          <a href="{{ url_for('my_events') }}" class="{% if request.endpoint == 'my_events' %}active{% endif %}"><i class="fas fa-calendar mr-2"></i>My Events</a>
-          <a href="{{ url_for('past_events') }}" class="{% if request.endpoint == 'past_events' %}active{% endif %}"><i class="fas fa-history mr-2"></i>Past Events</a>
-          <a href="{{ url_for('notifications') }}" class="{% if request.endpoint == 'notifications' %}active{% endif %}"><i class="fas fa-bell mr-2"></i>Notifications</a>
+          <a href="{{ url_for('my_events') }}" class="{% if request.endpoint == 'my_events' %}active{% endif %}"><i class="fas fa-calendar mr-2"></i>{{ get_translation('my_events') }}</a>
+          <a href="{{ url_for('past_events') }}" class="{% if request.endpoint == 'past_events' %}active{% endif %}"><i class="fas fa-history mr-2"></i>{{ get_translation('past_events') }}</a>
+          <a href="{{ url_for('notifications') }}" class="{% if request.endpoint == 'notifications' %}active{% endif %}"><i class="fas fa-bell mr-2"></i>{{ get_translation('notifications') }}</a>
           {% if current_user.is_admin %}
-            <a href="{{ url_for('dashboard') }}" class="{% if request.endpoint == 'dashboard' %}active{% endif %}"><i class="fas fa-tachometer-alt mr-2"></i>Dashboard</a>
-            <a href="{{ url_for('verify_qr') }}" class="{% if request.endpoint == 'verify_qr' %}active{% endif %}"><i class="fas fa-qrcode mr-2"></i>Check-In Attendees</a>
-            <a href="{{ url_for('analytics') }}" class="{% if request.endpoint == 'analytics' %}active{% endif %}"><i class="fas fa-chart-bar mr-2"></i>Analytics</a>
-            <a href="{{ url_for('feedback_analytics') }}" class="{% if request.endpoint == 'feedback_analytics' %}active{% endif %}"><i class="fas fa-comments mr-2"></i>Feedback Analytics</a>
-            <a href="{{ url_for('admin_members') }}" class="{% if request.endpoint == 'admin_members' %}active{% endif %}"><i class="fas fa-users mr-2"></i>Members</a>
+            <a href="{{ url_for('dashboard') }}" class="{% if request.endpoint == 'dashboard' %}active{% endif %}"><i class="fas fa-tachometer-alt mr-2"></i>{{ get_translation('dashboard') }}</a>
+            <a href="{{ url_for('verify_qr') }}" class="{% if request.endpoint == 'verify_qr' %}active{% endif %}"><i class="fas fa-qrcode mr-2"></i>{{ get_translation('check_in_attendees') }}</a>
+            <a href="{{ url_for('analytics') }}" class="{% if request.endpoint == 'analytics' %}active{% endif %}"><i class="fas fa-chart-bar mr-2"></i>{{ get_translation('analytics') }}</a>
+            <a href="{{ url_for('feedback_analytics') }}" class="{% if request.endpoint == 'feedback_analytics' %}active{% endif %}"><i class="fas fa-comments mr-2"></i>{{ get_translation('feedback_analytics') }}</a>
+            <a href="{{ url_for('admin_members') }}" class="{% if request.endpoint == 'admin_members' %}active{% endif %}"><i class="fas fa-users mr-2"></i>{{ get_translation('members') }}</a>
           {% endif %}
-          <a href="{{ url_for('profile') }}"><i class="fas fa-user-cog mr-2"></i>Profile</a>
-          <a href="{{ url_for('logout') }}"><i class="fas fa-sign-out-alt mr-2"></i>Logout</a>
+          <a href="{{ url_for('profile') }}"><i class="fas fa-user-cog mr-2"></i>{{ get_translation('profile') }}</a>
+          <a href="{{ url_for('logout') }}"><i class="fas fa-sign-out-alt mr-2"></i>{{ get_translation('logout') }}</a>
         {% else %}
           <a href="{{ url_for('login') }}"><i class="fas fa-sign-in-alt mr-2"></i>{{ get_translation('login') }}</a>
         {% endif %}
@@ -1870,7 +1870,7 @@
       </a>
       <a href="{{ url_for('notifications') }}" class="nav-item {% if request.endpoint == 'notifications' %}active{% endif %}">
         <i class="fas fa-bell"></i>
-        <span>Notifications</span>
+        <span>{{ get_translation('notifications') }}</span>
       </a>
       <a href="{{ url_for('profile') }}" class="nav-item {% if request.endpoint == 'profile' %}active{% endif %}">
         <i class="fas fa-user"></i>
