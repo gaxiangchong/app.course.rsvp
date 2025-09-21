@@ -37,13 +37,8 @@ from dotenv import load_dotenv
 
 import qrcode
 
-# Conditional Stripe import
-try:
-    import stripe
-    STRIPE_AVAILABLE = True
-except ImportError:
-    STRIPE_AVAILABLE = False
-    stripe = None
+# Stripe import removed - only credit payments are supported
+STRIPE_AVAILABLE = False
 
 # Load environment variables
 try:
@@ -92,9 +87,7 @@ db = SQLAlchemy(app)
 login_manager = LoginManager(app)
 login_manager.login_view = 'login'
 
-# Initialize Stripe (only if available and API key is provided)
-if STRIPE_AVAILABLE and app.config.get('STRIPE_SECRET_KEY'):
-    stripe.api_key = app.config['STRIPE_SECRET_KEY']
+# Stripe initialization removed - only credit payments are supported
 
 # Language configuration
 SUPPORTED_LANGUAGES = {
@@ -123,7 +116,7 @@ def inject_helpers():
     return {
         'get_membership_grade_info': get_membership_grade_info,
         'get_currency_info': get_currency_info,
-        'stripe_publishable_key': app.config.get('STRIPE_PUBLISHABLE_KEY', ''),
+        # Stripe configuration removed - only credit payments are supported
         'default_currency': app.config.get('DEFAULT_CURRENCY', 'SGD'),
         'default_country': app.config.get('DEFAULT_COUNTRY', 'Singapore'),
         'get_current_language': get_current_language,
@@ -834,55 +827,7 @@ def validate_superuser_password(password):
     return password == app.config['SUPERUSER_PASSWORD']
 
 
-def create_stripe_payment_intent(amount, currency='sgd', metadata=None):
-    """Create a Stripe payment intent."""
-    if not STRIPE_AVAILABLE or not app.config.get('STRIPE_SECRET_KEY'):
-        print("Stripe not available or configured - payment intent creation skipped")
-        return None
-    
-    try:
-        intent = stripe.PaymentIntent.create(
-            amount=int(amount * 100),  # Convert to cents
-            currency=currency,
-            metadata=metadata or {}
-        )
-        return intent
-    except stripe.error.StripeError as e:
-        print(f"Stripe error: {e}")
-        return None
-
-
-def create_stripe_checkout_session(amount, event_name, rsvp_id, success_url, cancel_url, currency='sgd'):
-    """Create a Stripe checkout session."""
-    if not STRIPE_AVAILABLE or not app.config.get('STRIPE_SECRET_KEY'):
-        print("Stripe not available or configured - checkout session creation skipped")
-        return None
-    
-    try:
-        session = stripe.checkout.Session.create(
-            payment_method_types=['card'],
-            line_items=[{
-                'price_data': {
-                    'currency': currency,
-                    'product_data': {
-                        'name': f'Event: {event_name}',
-                    },
-                    'unit_amount': int(amount * 100),  # Convert to cents
-                },
-                'quantity': 1,
-            }],
-            mode='payment',
-            success_url=success_url,
-            cancel_url=cancel_url,
-            metadata={
-                'rsvp_id': str(rsvp_id),
-                'event_name': event_name
-            }
-        )
-        return session
-    except stripe.error.StripeError as e:
-        print(f"Stripe error: {e}")
-        return None
+# Stripe payment functions removed - only credit payments are supported
 
 
 def create_notification(user_id, notification_type, title, message, payload=None):
@@ -1556,12 +1501,6 @@ def event_detail(event_id):
                     rsvp.payment_amount = event.price
                     rsvp.payment_method = 'credit'
                     flash('Payment successful! Credits deducted from your account.', 'success')
-                
-                elif payment_method == 'card':
-                    # Redirect to Stripe payment
-                    rsvp.payment_method = 'card'
-                    db.session.commit()
-                    return redirect(url_for('create_payment', event_id=event.id))
             else:
                 # Free event
                 rsvp.payment_status = 'paid'
@@ -2455,122 +2394,13 @@ def event_stats(event_id):
     return jsonify(stats)
 
 
-@app.route('/event/<int:event_id>/payment', methods=['POST'])
-@login_required
-def create_payment(event_id):
-    """Create a payment for an event."""
-    event = Event.query.get_or_404(event_id)
-    
-    if event.price <= 0:
-        flash('This event is free.', 'info')
-        return redirect(url_for('event_detail', event_id=event_id))
-    
-    # Check if user already has an RSVP
-    rsvp = RSVP.query.filter_by(event_id=event_id, user_id=current_user.id).first()
-    if not rsvp:
-        flash('Please RSVP first before making payment.', 'warning')
-        return redirect(url_for('event_detail', event_id=event_id))
-    
-    if rsvp.payment_status == 'paid':
-        flash('Payment already completed.', 'info')
-        return redirect(url_for('event_detail', event_id=event_id))
-    
-    # Check if Stripe is available
-    if not STRIPE_AVAILABLE:
-        flash('Payment system is currently unavailable. Please contact the event organizer.', 'warning')
-        return redirect(url_for('event_detail', event_id=event_id))
-    
-    # Create Stripe checkout session
-    success_url = url_for('payment_success', rsvp_id=rsvp.id, _external=True)
-    cancel_url = url_for('event_detail', event_id=event_id, _external=True)
-    
-    session = create_stripe_checkout_session(
-        amount=event.price,
-        event_name=event.name,
-        rsvp_id=rsvp.id,
-        success_url=success_url,
-        cancel_url=cancel_url,
-        currency=app.config.get('DEFAULT_CURRENCY', 'sgd').lower()
-    )
-    
-    if session:
-        return redirect(session.url)
-    else:
-        flash('Failed to create payment session. Please try again.', 'danger')
-        return redirect(url_for('event_detail', event_id=event_id))
+# Stripe payment routes removed - only credit payments are supported
 
 
-@app.route('/payment/success/<int:rsvp_id>')
-@login_required
-def payment_success(rsvp_id):
-    """Handle successful payment."""
-    rsvp = RSVP.query.get_or_404(rsvp_id)
-    
-    if rsvp.user_id != current_user.id:
-        flash('Unauthorized access.', 'danger')
-        return redirect(url_for('index'))
-    
-    # Update RSVP status to paid
-    rsvp.payment_status = 'paid'
-    rsvp.payment_amount = rsvp.event.price
-    
-    # If capacity allows, set status to Accepted
-    if rsvp.event.available_spots > 0:
-        rsvp.status = 'Accepted'
-    
-    db.session.commit()
-    
-    # Send confirmation email
-    send_email(
-        to_email=current_user.email,
-        subject=f'Payment Confirmation - {rsvp.event.name}',
-        body=f'Your payment for {rsvp.event.name} has been confirmed. Amount: ${rsvp.payment_amount:.2f}',
-        html_body=f'''
-        <h2>Payment Confirmation</h2>
-        <p>Your payment for <strong>{rsvp.event.name}</strong> has been confirmed.</p>
-        <p><strong>Amount:</strong> ${rsvp.payment_amount:.2f}</p>
-        <p><strong>Event Date:</strong> {rsvp.event.start_date.strftime('%Y-%m-%d %H:%M')}</p>
-        <p><strong>Location:</strong> {rsvp.event.location}</p>
-        <p>Thank you for your payment!</p>
-        '''
-    )
-    
-    flash('Payment successful! You will receive a confirmation email shortly.', 'success')
-    return redirect(url_for('event_detail', event_id=rsvp.event_id))
+# Payment success route removed - credit payments are handled directly in RSVP submission
 
 
-@app.route('/payment/webhook', methods=['POST'])
-def stripe_webhook():
-    """Handle Stripe webhook events."""
-    if not STRIPE_AVAILABLE or not app.config.get('STRIPE_WEBHOOK_SECRET'):
-        return 'Stripe not available or configured', 400
-    
-    payload = request.get_data()
-    sig_header = request.headers.get('Stripe-Signature')
-    
-    try:
-        event = stripe.Webhook.construct_event(
-            payload, sig_header, app.config['STRIPE_WEBHOOK_SECRET']
-        )
-    except ValueError:
-        return 'Invalid payload', 400
-    except stripe.error.SignatureVerificationError:
-        return 'Invalid signature', 400
-    
-    # Handle the event
-    if event['type'] == 'checkout.session.completed':
-        session = event['data']['object']
-        rsvp_id = session['metadata']['rsvp_id']
-        
-        # Update RSVP payment status
-        rsvp = RSVP.query.get(rsvp_id)
-        if rsvp:
-            rsvp.payment_status = 'paid'
-            rsvp.payment_amount = session['amount_total'] / 100  # Convert from cents
-            rsvp.stripe_payment_intent_id = session['payment_intent']
-            db.session.commit()
-    
-    return 'Success', 200
+# Stripe webhook route removed - only credit payments are supported
 
 
 if __name__ == '__main__':

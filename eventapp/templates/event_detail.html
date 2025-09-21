@@ -60,18 +60,15 @@
       <div class="form-group">
         <label>Payment Method</label>
         <div class="btn-group w-100" role="group">
-          <button type="button" class="btn btn-outline-primary" id="cardPaymentBtn">
-            <i class="fas fa-credit-card mr-2"></i>Pay by Card
-          </button>
-          <button type="button" class="btn btn-outline-success" id="creditPaymentBtn">
+          <button type="button" class="btn btn-success" id="creditPaymentBtn">
             <i class="fas fa-coins mr-2"></i>Pay by Credit
           </button>
         </div>
         <small class="form-text text-muted">
           {% if event.price == 0 %}
-            This event is free - you can use either payment method.
+            This event is free - no payment required.
           {% else %}
-            Choose your preferred payment method to complete your RSVP.
+            Payment will be processed using your credit points.
           {% endif %}
         </small>
       </div>
@@ -113,8 +110,6 @@
         Payment completed! Amount: {{ get_currency_info(default_country).symbol }}{{ "%.2f"|format(rsvp.payment_amount) }}
         {% if rsvp.payment_method == 'credit' %}
           <br><small>Paid using credit points</small>
-        {% else %}
-          <br><small>Paid using card</small>
         {% endif %}
       </div>
     {% endif %}
@@ -154,7 +149,7 @@
 {% block scripts %}
 <script>
 $(document).ready(function() {
-    let selectedPaymentMethod = null;
+    let selectedPaymentMethod = 'credit'; // Default to credit payment
     const eventPrice = {{ event.price }};
     const userCredits = {{ current_user.credit_point or 0 }};
     
@@ -188,12 +183,6 @@ $(document).ready(function() {
                     submitBtn.html('<i class="fas fa-exclamation-triangle mr-2"></i>Insufficient Credits');
                     submitBtn.removeClass('btn-primary btn-success').addClass('btn-warning');
                 }
-            } else if (selectedPaymentMethod === 'card') {
-                submitBtn.html('<i class="fas fa-credit-card mr-2"></i>Pay with Card & Submit RSVP');
-                submitBtn.removeClass('btn-success btn-warning').addClass('btn-primary');
-            } else {
-                submitBtn.html('<i class="fas fa-credit-card mr-2"></i>Choose Payment Method');
-                submitBtn.removeClass('btn-success btn-warning').addClass('btn-primary');
             }
         } else {
             submitBtn.html('<i class="fas fa-check mr-2"></i>Submit RSVP');
@@ -206,18 +195,10 @@ $(document).ready(function() {
         togglePaymentSection();
     });
     
-    // Handle payment method selection
-    $('#cardPaymentBtn').on('click', function() {
-        selectedPaymentMethod = 'card';
-        $(this).removeClass('btn-outline-primary').addClass('btn-primary');
-        $('#creditPaymentBtn').removeClass('btn-success').addClass('btn-outline-success');
-        updateSubmitButton();
-    });
-    
+    // Handle payment method selection (credit only)
     $('#creditPaymentBtn').on('click', function() {
         selectedPaymentMethod = 'credit';
         $(this).removeClass('btn-outline-success').addClass('btn-success');
-        $('#cardPaymentBtn').removeClass('btn-primary').addClass('btn-outline-primary');
         updateSubmitButton();
     });
     
@@ -226,21 +207,15 @@ $(document).ready(function() {
         const status = $('#status').val();
         
         if (status === 'Accepted') {
-            if (eventPrice > 0 && !selectedPaymentMethod) {
-                e.preventDefault();
-                alert('Please select a payment method for this paid event.');
-                return false;
-            }
-            
-            if (selectedPaymentMethod === 'credit' && userCredits < eventPrice) {
+            if (eventPrice > 0 && selectedPaymentMethod === 'credit' && userCredits < eventPrice) {
                 e.preventDefault();
                 alert('Insufficient credits. You need ' + (eventPrice - userCredits).toFixed(2) + ' more credits.');
                 return false;
             }
             
-            // Add payment method to form data
-            if (selectedPaymentMethod) {
-                $(this).append('<input type="hidden" name="payment_method" value="' + selectedPaymentMethod + '">');
+            // Add payment method to form data (always credit for paid events)
+            if (eventPrice > 0) {
+                $(this).append('<input type="hidden" name="payment_method" value="credit">');
             }
         }
     });
