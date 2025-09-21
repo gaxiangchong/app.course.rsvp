@@ -1039,9 +1039,10 @@ def check_email_verification():
 
 @app.route('/')
 def index():
-    """Home page showing upcoming events."""
-    events = Event.query.filter(Event.status != 'cancelled').order_by(Event.start_date.asc()).all()
-    return render_template('index.html', events=events)
+    """Home page showing events sorted by latest first."""
+    from datetime import datetime
+    events = Event.query.filter(Event.status != 'cancelled').order_by(Event.start_date.desc()).all()
+    return render_template('index.html', events=events, current_time=datetime.utcnow())
 
 @app.route('/set_language/<language>')
 def set_language(language):

@@ -1339,6 +1339,12 @@
         color: white;
       }
       
+      .status-badge.past-event {
+        background-color: #6c757d;
+        color: white;
+        opacity: 0.8;
+      }
+      
       /* Event Header */
       .event-header {
         padding: 12px 20px 0; /* Reduced padding for shorter cards */
@@ -1497,6 +1503,32 @@
         bottom: 0;
         z-index: 1;
         border-radius: 16px;
+      }
+      
+      /* Disabled Event Link */
+      .event-link-disabled {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 1;
+        border-radius: 16px;
+        cursor: not-allowed;
+        background-color: rgba(0, 0, 0, 0.1);
+      }
+      
+      /* Disabled Event Card Styling */
+      .event-card-container:has(.event-link-disabled) .event-card {
+        opacity: 0.7;
+        filter: grayscale(0.3);
+        cursor: not-allowed;
+      }
+      
+      .event-card-container:has(.event-link-disabled) .event-card:hover {
+        transform: none;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        border-color: var(--dark-border);
       }
       
       .action-btn {

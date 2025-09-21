@@ -52,7 +52,9 @@
               <div class="organized-by-label">Organized by {{ event.creator.display_name }}</div>
               
               <!-- Status Badge -->
-              {% if current_user.is_authenticated %}
+              {% if event.start_date <= current_time %}
+                <div class="status-badge past-event">Past Event</div>
+              {% elif current_user.is_authenticated %}
                 {% if current_user.id == event.creator_id %}
                   <div class="status-badge organized">Organized</div>
                 {% else %}
@@ -153,7 +155,11 @@
             </div>
             
             <!-- Click to view details -->
-            <a href="{{ url_for('event_detail', event_id=event.id) }}" class="event-link"></a>
+            {% if event.start_date > current_time %}
+              <a href="{{ url_for('event_detail', event_id=event.id) }}" class="event-link"></a>
+            {% else %}
+              <div class="event-link-disabled" title="This event has ended"></div>
+            {% endif %}
           </div>
         </div>
       {% endfor %}
