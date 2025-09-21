@@ -32,6 +32,22 @@
         background-color: transparent !important;
       }
       
+      /* Custom container width for wider layout */
+      .container {
+        max-width: 98vw !important;
+        padding-left: 10px;
+        padding-right: 10px;
+      }
+      
+      /* Extra wide screens - use even more space */
+      @media (min-width: 1600px) {
+        .container {
+          max-width: 98vw !important;
+          padding-left: 30px;
+          padding-right: 30px;
+        }
+      }
+      
       .bg-white, .bg-light {
         background-color: var(--dark-card) !important;
         color: var(--dark-text) !important;
@@ -1112,17 +1128,14 @@
       /* Events Grid */
       .events-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-        gap: 24px;
+        grid-template-columns: repeat(auto-fit, minmax(368px, 1fr));
+        gap: 12px;
         margin-bottom: 24px;
-        max-width: 1200px; /* Match container max-width */
-        margin-left: auto;
-        margin-right: auto;
-        padding: 0 15px; /* Match container padding */
       }
       
       .event-card-container {
         position: relative;
+        min-width: 368px; /* Force minimum width */
       }
       
       /* Event Cards */
@@ -1143,7 +1156,7 @@
       /* Event Image */
       .event-image {
         position: relative;
-        height: 100px;
+        height: 120px; /* Keep it short */
         overflow: hidden;
         border-radius: 16px 16px 0 0;
       }
@@ -1328,8 +1341,8 @@
       
       /* Event Header */
       .event-header {
-        padding: 16px 34px 0;
-        margin-bottom: 12px;
+        padding: 12px 20px 0; /* Reduced padding for shorter cards */
+        margin-bottom: 8px; /* Reduced margin */
       }
       
       .event-title {
@@ -1354,8 +1367,8 @@
       /* Event Details */
       .event-details {
         flex: 1;
-        margin-bottom: 12px;
-        padding: 0 34px;
+        margin-bottom: 8px; /* Reduced margin for shorter cards */
+        padding: 0 20px; /* Reduced padding */
       }
       
       .detail-row {
@@ -1546,7 +1559,7 @@
       
       /* Welcome Section */
       .welcome-section {
-        padding: 30px 15px; /* Add horizontal padding to match events-grid */
+        padding: 30px 0;
         margin-bottom: 30px;
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         border-radius: 16px;
@@ -1554,9 +1567,6 @@
         color: white;
         text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
         box-shadow: 0 8px 32px rgba(102, 126, 234, 0.3);
-        max-width: 1200px; /* Match events-grid max-width */
-        margin-left: auto;
-        margin-right: auto;
       }
       
       /* Hero Section for non-authenticated users */

@@ -3,17 +3,19 @@
 {% block content %}
   {% if current_user.is_authenticated %}
     <!-- Welcome Section -->
-    <div class="welcome-section">
-      <div class="d-flex justify-content-between align-items-center">
-        <div>
-          <h1 class="welcome-title">Welcome back, {{ current_user.display_name }}!</h1>
-          <p class="welcome-subtitle">Discover and manage your events</p>
+    <div class="container">
+      <div class="welcome-section">
+        <div class="d-flex justify-content-between align-items-center">
+          <div>
+            <h1 class="welcome-title">Welcome back, {{ current_user.display_name }}!</h1>
+            <p class="welcome-subtitle">Discover and manage your events</p>
+          </div>
+          {% if current_user.is_admin %}
+            <a href="{{ url_for('create_event') }}" class="btn btn-primary">
+              <i class="fas fa-plus mr-2"></i>Create Event
+            </a>
+          {% endif %}
         </div>
-        {% if current_user.is_admin %}
-          <a href="{{ url_for('create_event') }}" class="btn btn-primary">
-            <i class="fas fa-plus mr-2"></i>Create Event
-          </a>
-        {% endif %}
       </div>
     </div>
   {% else %}
@@ -28,7 +30,8 @@
   {% endif %}
 
   {% if events %}
-    <div class="events-grid">
+    <div class="container">
+      <div class="events-grid">
       {% for event in events %}
         <div class="event-card-container">
           <div class="event-card">
@@ -154,6 +157,7 @@
           </div>
         </div>
       {% endfor %}
+      </div>
     </div>
   {% else %}
     <div class="text-center py-5">
