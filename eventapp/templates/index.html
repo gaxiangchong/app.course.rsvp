@@ -2,18 +2,82 @@
 {% block title %}Home - Noble Quest{% endblock %}
 {% block content %}
   {% if current_user.is_authenticated %}
-    <!-- Welcome Section -->
+    <!-- Welcome Carousel Section -->
     <div class="container">
-      <div class="welcome-section">
-        <div class="d-flex justify-content-between align-items-center">
-          <div>
-            <h1 class="welcome-title">Welcome back, {{ current_user.display_name }}!</h1>
-            <p class="welcome-subtitle">Discover and manage your events</p>
-          </div>
-          {% if current_user.is_admin %}
-            <a href="{{ url_for('create_event') }}" class="btn btn-primary">
-              <i class="fas fa-plus mr-2"></i>Create Event
-            </a>
+      <div class="welcome-carousel-section">
+        <div class="carousel-container">
+          {% if carousel_images %}
+            <div class="carousel-wrapper">
+              <div class="carousel-slides" id="carousel-slides">
+                {% for image in carousel_images %}
+                  <div class="carousel-slide {% if loop.first %}active{% endif %}">
+                    <img src="{{ image.image_url }}" alt="{{ image.title or 'Promotional Image' }}" class="carousel-image">
+                    <div class="carousel-overlay">
+                      <div class="carousel-content">
+                        <h1 class="carousel-title">Welcome back, {{ current_user.display_name }}!</h1>
+                        <p class="carousel-subtitle">Discover and manage your events</p>
+                        {% if image.title %}
+                          <h3 class="carousel-image-title">{{ image.title }}</h3>
+                        {% endif %}
+                        {% if image.description %}
+                          <p class="carousel-image-description">{{ image.description }}</p>
+                        {% endif %}
+                      </div>
+                    </div>
+                  </div>
+                {% endfor %}
+              </div>
+              
+              <!-- Carousel Controls -->
+              <div class="carousel-controls">
+                <button class="carousel-btn carousel-prev" id="carousel-prev">
+                  <i class="fas fa-chevron-left"></i>
+                </button>
+                <button class="carousel-btn carousel-next" id="carousel-next">
+                  <i class="fas fa-chevron-right"></i>
+                </button>
+              </div>
+              
+              <!-- Carousel Indicators -->
+              <div class="carousel-indicators" id="carousel-indicators">
+                {% for image in carousel_images %}
+                  <button class="carousel-indicator {% if loop.first %}active{% endif %}" 
+                          data-slide="{{ loop.index0 }}"></button>
+                {% endfor %}
+              </div>
+              
+              <!-- Admin Controls -->
+              {% if current_user.is_admin %}
+                <div class="carousel-admin-controls">
+                  <a href="{{ url_for('admin_carousel') }}" class="btn btn-sm btn-outline-light" title="Manage Carousel">
+                    <i class="fas fa-cog"></i>
+                  </a>
+                  <a href="{{ url_for('create_event') }}" class="btn btn-sm btn-primary" title="Create Event">
+                    <i class="fas fa-plus"></i>
+                  </a>
+                </div>
+              {% endif %}
+            </div>
+          {% else %}
+            <!-- Fallback Welcome Section -->
+            <div class="welcome-section">
+              <div class="d-flex justify-content-between align-items-center">
+                <div>
+                  <h1 class="welcome-title">Welcome back, {{ current_user.display_name }}!</h1>
+                  <p class="welcome-subtitle">Discover and manage your events</p>
+                </div>
+                {% if current_user.is_admin %}
+                  <div class="d-flex gap-2">
+                    <a href="{{ url_for('admin_carousel') }}" class="btn btn-secondary">
+                      <i class="fas fa-images mr-2"></i>Setup Carousel
+                    </a>
+                    <a href="{{ url_for('create_event') }}" class="btn btn-primary">
+                      <i class="fas fa-plus mr-2"></i>Create Event
+                    </a>
+                  </div>
+                {% endif %}
+              </div>
+            </div>
           {% endif %}
         </div>
       </div>

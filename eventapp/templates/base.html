@@ -1698,6 +1698,226 @@
       .mobile-menu { background: #222; padding: 10px 15px; border-top: 1px solid rgba(255,255,255,0.1); }
       .mobile-menu a { display: block; color: #fff; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.1); }
       .mobile-menu a:last-child { border-bottom: 0; }
+      
+      /* Carousel Styles */
+      .welcome-carousel-section {
+        margin-bottom: 30px;
+      }
+      
+      .carousel-container {
+        position: relative;
+        border-radius: 16px;
+        overflow: hidden;
+        box-shadow: 0 8px 32px rgba(102, 126, 234, 0.3);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+      }
+      
+      .carousel-wrapper {
+        position: relative;
+        height: 340px;
+        overflow: hidden;
+      }
+      
+      .carousel-slides {
+        position: relative;
+        height: 100%;
+        width: 100%;
+      }
+      
+      .carousel-slide {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        opacity: 0;
+        transition: opacity 0.5s ease-in-out;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      
+      .carousel-slide.active {
+        opacity: 1;
+      }
+      
+      .carousel-image {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        object-position: center;
+      }
+      
+      .carousel-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: flex-start;
+        justify-content: center;
+        text-align: center;
+        color: white;
+        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+        padding-top: 20px;
+      }
+      
+      .carousel-content {
+        max-width: 600px;
+        padding: 0 20px;
+      }
+      
+      .carousel-title {
+        font-size: 1.5rem;
+        font-weight: 600;
+        margin-bottom: 5px;
+        color: white;
+        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+      }
+      
+      .carousel-subtitle {
+        font-size: 0.9rem;
+        color: rgba(255, 255, 255, 0.9);
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+        margin-bottom: 10px;
+        font-weight: 400;
+      }
+      
+      .carousel-image-title {
+        font-size: 1.1rem;
+        font-weight: 500;
+        margin-bottom: 5px;
+        color: white;
+        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+      }
+      
+      .carousel-image-description {
+        font-size: 0.8rem;
+        color: rgba(255, 255, 255, 0.9);
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+        margin-bottom: 0;
+      }
+      
+      .carousel-controls {
+        position: absolute;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 100%;
+        display: flex;
+        justify-content: space-between;
+        padding: 0 20px;
+        pointer-events: none;
+      }
+      
+      .carousel-btn {
+        background: rgba(255, 255, 255, 0.2);
+        border: none;
+        color: white;
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        pointer-events: auto;
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+      }
+      
+      .carousel-btn:hover {
+        background: rgba(255, 255, 255, 0.3);
+        transform: scale(1.1);
+      }
+      
+      .carousel-indicators {
+        position: absolute;
+        bottom: 20px;
+        left: 35%;
+        transform: translateX(-50%);
+        display: flex;
+        gap: 10px;
+        pointer-events: none;
+        justify-content: center;
+        align-items: center;
+      }
+      
+      .carousel-indicator {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        border: none;
+        background: rgba(255, 255, 255, 0.4);
+        cursor: pointer;
+        transition: all 0.3s ease;
+        pointer-events: auto;
+      }
+      
+      .carousel-indicator.active {
+        background: white;
+        transform: scale(1.2);
+      }
+      
+      .carousel-indicator:hover {
+        background: rgba(255, 255, 255, 0.7);
+      }
+      
+      .carousel-admin-controls {
+        position: absolute;
+        bottom: 20px;
+        right: 20px;
+        display: flex;
+        gap: 10px;
+        pointer-events: none;
+      }
+      
+      .carousel-admin-controls .btn {
+        pointer-events: auto;
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+      }
+      
+      /* Mobile carousel adjustments */
+      @media (max-width: 768px) {
+        .carousel-wrapper {
+          height: 300px;
+        }
+        
+        .carousel-title {
+          font-size: 1.2rem;
+        }
+        
+        .carousel-subtitle {
+          font-size: 0.8rem;
+        }
+        
+        .carousel-image-title {
+          font-size: 1rem;
+        }
+        
+        .carousel-controls {
+          padding: 0 10px;
+        }
+        
+        .carousel-btn {
+          width: 40px;
+          height: 40px;
+        }
+        
+        .carousel-admin-controls {
+          bottom: 10px;
+          right: 10px;
+          flex-direction: column;
+          gap: 5px;
+        }
+        
+        .carousel-admin-controls .btn {
+          font-size: 0.8rem;
+          padding: 5px 10px;
+        }
+      }
     </style>
   </head>
   <body>
@@ -1768,6 +1988,11 @@
                 <li class="nav-item-header">
                   <a href="{{ url_for('admin_members') }}" class="nav-link-header admin-nav-icon {% if request.endpoint == 'admin_members' %}active{% endif %}" title="{{ get_translation('members') }}">
                     <i class="fas fa-users"></i>
+                  </a>
+                </li>
+                <li class="nav-item-header">
+                  <a href="{{ url_for('admin_carousel') }}" class="nav-link-header admin-nav-icon {% if request.endpoint == 'admin_carousel' %}active{% endif %}" title="Carousel Management">
+                    <i class="fas fa-images"></i>
                   </a>
                 </li>
             {% endif %}
@@ -2066,5 +2291,124 @@
     </script>
     
     {% block scripts %}{% endblock %}
+    
+    <!-- Carousel JavaScript -->
+    <script>
+      document.addEventListener('DOMContentLoaded', function() {
+        const carouselSlides = document.getElementById('carousel-slides');
+        const carouselIndicators = document.getElementById('carousel-indicators');
+        const prevBtn = document.getElementById('carousel-prev');
+        const nextBtn = document.getElementById('carousel-next');
+        
+        if (!carouselSlides) return; // Exit if carousel doesn't exist
+        
+        const slides = carouselSlides.querySelectorAll('.carousel-slide');
+        const indicators = carouselIndicators ? carouselIndicators.querySelectorAll('.carousel-indicator') : [];
+        
+        let currentSlide = 0;
+        let autoSlideInterval;
+        
+        function showSlide(index) {
+          // Remove active class from all slides and indicators
+          slides.forEach(slide => slide.classList.remove('active'));
+          indicators.forEach(indicator => indicator.classList.remove('active'));
+          
+          // Add active class to current slide and indicator
+          if (slides[index]) {
+            slides[index].classList.add('active');
+          }
+          if (indicators[index]) {
+            indicators[index].classList.add('active');
+          }
+          
+          currentSlide = index;
+        }
+        
+        function nextSlide() {
+          const nextIndex = (currentSlide + 1) % slides.length;
+          showSlide(nextIndex);
+        }
+        
+        function prevSlide() {
+          const prevIndex = (currentSlide - 1 + slides.length) % slides.length;
+          showSlide(prevIndex);
+        }
+        
+        function startAutoSlide() {
+          autoSlideInterval = setInterval(nextSlide, 8000); // 8 seconds
+        }
+        
+        function stopAutoSlide() {
+          if (autoSlideInterval) {
+            clearInterval(autoSlideInterval);
+          }
+        }
+        
+        // Event listeners
+        if (nextBtn) {
+          nextBtn.addEventListener('click', () => {
+            nextSlide();
+            stopAutoSlide();
+            startAutoSlide();
+          });
+        }
+        
+        if (prevBtn) {
+          prevBtn.addEventListener('click', () => {
+            prevSlide();
+            stopAutoSlide();
+            startAutoSlide();
+          });
+        }
+        
+        // Indicator click events
+        indicators.forEach((indicator, index) => {
+          indicator.addEventListener('click', () => {
+            showSlide(index);
+            stopAutoSlide();
+            startAutoSlide();
+          });
+        });
+        
+        // Touch/swipe support
+        let startX = 0;
+        let startY = 0;
+        let endX = 0;
+        let endY = 0;
+        
+        carouselSlides.addEventListener('touchstart', (e) => {
+          startX = e.touches[0].clientX;
+          startY = e.touches[0].clientY;
+        });
+        
+        carouselSlides.addEventListener('touchend', (e) => {
+          endX = e.changedTouches[0].clientX;
+          endY = e.changedTouches[0].clientY;
+          
+          const deltaX = endX - startX;
+          const deltaY = endY - startY;
+          
+          // Only trigger swipe if horizontal movement is greater than vertical
+          if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 50) {
+            if (deltaX > 0) {
+              prevSlide();
+            } else {
+              nextSlide();
+            }
+            stopAutoSlide();
+            startAutoSlide();
+          }
+        });
+        
+        // Pause auto-slide on hover
+        carouselSlides.addEventListener('mouseenter', stopAutoSlide);
+        carouselSlides.addEventListener('mouseleave', startAutoSlide);
+        
+        // Start auto-slide
+        if (slides.length > 1) {
+          startAutoSlide();
+        }
+      });
+    </script>
   </body>
 </html>

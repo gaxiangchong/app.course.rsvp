@@ -31,6 +31,13 @@
   {# RSVP form with integrated payment #}
   <hr>
   <h4>RSVP & Payment</h4>
+  {% if event.meal_option_enabled %}
+    <div class="alert alert-secondary">
+      <i class="fas fa-utensils mr-2"></i>
+      Meal option is available.
+      {% if event.meal_option_remarks %}<br><small>{{ event.meal_option_remarks }}</small>{% endif %}
+    </div>
+  {% endif %}
   <form method="post" id="rsvpForm">
     <div class="form-group">
       <label for="status">Your response</label>
@@ -63,12 +70,17 @@
           <button type="button" class="btn btn-success" id="creditPaymentBtn">
             <i class="fas fa-coins mr-2"></i>Pay by Credit
           </button>
+          {% if event.pay_at_venue_enabled %}
+          <button type="button" class="btn btn-outline-secondary" id="payVenueBtn">
+            <i class="fas fa-store mr-2"></i>Pay at Venue
+          </button>
+          {% endif %}
         </div>
         <small class="form-text text-muted">
           {% if event.price == 0 %}
             This event is free - no payment required.
           {% else %}
-            Payment will be processed using your credit points.
+            Choose to pay using credits{% if event.pay_at_venue_enabled %} or pay at venue{% endif %}.
           {% endif %}
         </small>
       </div>
@@ -85,6 +97,12 @@
     </div>
     
     <div class="form-group">
+      {% if event.meal_option_enabled %}
+      <div class="form-check mb-3">
+        <input class="form-check-input" type="checkbox" id="meal_opt_in" name="meal_opt_in" {% if rsvp and rsvp.meal_opt_in %}checked{% endif %}>
+        <label class="form-check-label" for="meal_opt_in">I would like to opt-in for the meal</label>
+      </div>
+      {% endif %}
       <button type="submit" class="btn btn-primary" id="submitBtn">
         <i class="fas fa-check mr-2"></i>Submit RSVP
       </button>
@@ -183,6 +201,9 @@ $(document).ready(function() {
                     submitBtn.html('<i class="fas fa-exclamation-triangle mr-2"></i>Insufficient Credits');
                     submitBtn.removeClass('btn-primary btn-success').addClass('btn-warning');
                 }
+            } else if (selectedPaymentMethod === 'pay_at_venue') {
+                submitBtn.html('<i class="fas fa-store mr-2"></i>Pay at Venue & Submit RSVP');
+                submitBtn.removeClass('btn-primary btn-warning').addClass('btn-success');
             }
         } else {
             submitBtn.html('<i class="fas fa-check mr-2"></i>Submit RSVP');
@@ -195,10 +216,17 @@ $(document).ready(function() {
         togglePaymentSection();
     });
     
-    // Handle payment method selection (credit only)
+    // Handle payment method selection
     $('#creditPaymentBtn').on('click', function() {
         selectedPaymentMethod = 'credit';
         $(this).removeClass('btn-outline-success').addClass('btn-success');
+        $('#payVenueBtn').removeClass('btn-secondary').addClass('btn-outline-secondary');
+        updateSubmitButton();
+    });
+    $('#payVenueBtn').on('click', function() {
+        selectedPaymentMethod = 'pay_at_venue';
+        $(this).removeClass('btn-outline-secondary').addClass('btn-secondary');
+        $('#creditPaymentBtn').removeClass('btn-success').addClass('btn-outline-success');
         updateSubmitButton();
     });
     
@@ -213,9 +241,14 @@ $(document).ready(function() {
                 return false;
             }
             
-            // Add payment method to form data (always credit for paid events)
+            // Add payment method to form data
             if (eventPrice > 0) {
-                $(this).append('<input type="hidden" name="payment_method" value="credit">');
+                $(this).append('<input type="hidden" name="payment_method" value="' + selectedPaymentMethod + '">');
+            }
+            // Add meal opt-in if present
+            const mealCheckbox = document.getElementById('meal_opt_in');
+            if (mealCheckbox) {
+                $(this).append('<input type="hidden" name="meal_opt_in" value="' + (mealCheckbox.checked ? 'on' : '') + '">');
             }
         }
     });

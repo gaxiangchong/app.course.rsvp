@@ -386,6 +386,10 @@ class Event(db.Model):
     price = db.Column(db.Float, default=0.0)  # Event price in USD
     status = db.Column(db.String(20), default='active')  # active/cancelled/completed
     feedback_enabled = db.Column(db.Boolean, default=False)  # Whether feedback is enabled for this event
+    # New options
+    meal_option_enabled = db.Column(db.Boolean, default=False)
+    meal_option_remarks = db.Column(db.Text, nullable=True)
+    pay_at_venue_enabled = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -442,6 +446,32 @@ class Event(db.Model):
         return self.start_date
 
 
+class CarouselImage(db.Model):
+    """Represents a carousel image for the welcome section.
+
+    Attributes:
+        id (int): primary key.
+        image_url (str): URL to the carousel image.
+        title (str): optional title for the image.
+        description (str): optional description for the image.
+        order (int): display order (lower numbers first).
+        is_active (bool): whether the image is active.
+        created_at (datetime): creation timestamp.
+        updated_at (datetime): last update timestamp.
+    """
+    id = db.Column(db.Integer, primary_key=True)
+    image_url = db.Column(db.String(500), nullable=False)
+    title = db.Column(db.String(200), nullable=True)
+    description = db.Column(db.Text, nullable=True)
+    order = db.Column(db.Integer, default=0)
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    def __repr__(self):
+        return f'<CarouselImage {self.id}: {self.title or "Untitled"}>'
+
+
 class RSVP(db.Model):
     """Represents an RSVP response from a user for an event.
 
@@ -473,6 +503,8 @@ class RSVP(db.Model):
     payment_method = db.Column(db.String(20), nullable=True)  # card, credit, free
     stripe_payment_intent_id = db.Column(db.String(200), nullable=True)  # Stripe payment intent ID
     receipt_url = db.Column(db.String(500), nullable=True)  # URL to receipt
+    # New RSVP preference
+    meal_opt_in = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -1042,7 +1074,8 @@ def index():
     """Home page showing events sorted by latest first."""
     from datetime import datetime
     events = Event.query.filter(Event.status != 'cancelled').order_by(Event.start_date.desc()).all()
-    return render_template('index.html', events=events, current_time=datetime.utcnow())
+    carousel_images = CarouselImage.query.filter(CarouselImage.is_active == True).order_by(CarouselImage.order.asc()).all()
+    return render_template('index.html', events=events, carousel_images=carousel_images, current_time=datetime.utcnow())
 
 @app.route('/set_language/<language>')
 def set_language(language):
@@ -1482,6 +1515,8 @@ def event_detail(event_id):
         # Update RSVP details
         rsvp.status = status
         rsvp.guests = guests_int
+        # Meal opt-in
+        rsvp.meal_opt_in = request.form.get('meal_opt_in') == 'on'
         
         # Handle payment for accepted RSVPs
         if status == 'Accepted':
@@ -1502,6 +1537,12 @@ def event_detail(event_id):
                     rsvp.payment_amount = event.price
                     rsvp.payment_method = 'credit'
                     flash('Payment successful! Credits deducted from your account.', 'success')
+                elif payment_method == 'pay_at_venue' and event.pay_at_venue_enabled:
+                    # Mark as pending payment to be collected at venue
+                    rsvp.payment_status = 'pending'
+                    rsvp.payment_amount = event.price
+                    rsvp.payment_method = 'pay_at_venue'
+                    flash('You selected Pay at Venue. Please prepare payment on arrival.', 'info')
             else:
                 # Free event
                 rsvp.payment_status = 'paid'
@@ -1607,6 +1648,10 @@ def update_event(event_id):
         location = request.form.get('location')
         capacity = request.form.get('capacity')
         price = request.form.get('price', 0)  # Event price
+        # New options
+        meal_option_enabled = request.form.get('meal_option_enabled') == 'on'
+        meal_option_remarks = request.form.get('meal_option_remarks') or None
+        pay_at_venue_enabled = request.form.get('pay_at_venue_enabled') == 'on'
         rsvp_deadline_str = request.form.get('rsvp_deadline')
         feedback_enabled = request.form.get('feedback_enabled') == 'on'  # Checkbox value
         
@@ -1669,6 +1714,9 @@ def update_event(event_id):
         event.location = location
         event.capacity = capacity_int
         event.price = price_float
+        event.meal_option_enabled = meal_option_enabled
+        event.meal_option_remarks = meal_option_remarks
+        event.pay_at_venue_enabled = pay_at_venue_enabled
         event.rsvp_deadline = rsvp_deadline
         # Check if feedback was just enabled
         feedback_just_enabled = not event.feedback_enabled and feedback_enabled
@@ -2402,6 +2450,145 @@ def event_stats(event_id):
 
 
 # Stripe webhook route removed - only credit payments are supported
+
+
+# Carousel Management Routes
+@app.route('/admin/carousel')
+@login_required
+def admin_carousel():
+    """Admin carousel management page."""
+    if not current_user.is_admin:
+        flash('Access denied. Admin privileges required.', 'danger')
+        return redirect(url_for('index'))
+    
+    carousel_images = CarouselImage.query.order_by(CarouselImage.order.asc()).all()
+    return render_template('admin_carousel.html', carousel_images=carousel_images)
+
+
+@app.route('/admin/carousel/add', methods=['POST'])
+@login_required
+def add_carousel_image():
+    """Add a new carousel image (admin only)."""
+    if not current_user.is_admin:
+        flash('Access denied. Admin privileges required.', 'danger')
+        return redirect(url_for('index'))
+    
+    # Check if file was uploaded
+    if 'image_file' not in request.files:
+        flash('No image file selected.', 'danger')
+        return redirect(url_for('admin_carousel'))
+    
+    file = request.files['image_file']
+    if file.filename == '':
+        flash('No image file selected.', 'danger')
+        return redirect(url_for('admin_carousel'))
+    
+    if file and allowed_file(file.filename):
+        # Generate unique filename
+        filename = secure_filename(file.filename)
+        unique_filename = f"{uuid.uuid4()}_{filename}"
+        
+        # Create carousel directory if it doesn't exist
+        carousel_dir = os.path.join(app.static_folder, 'uploads', 'carousel')
+        os.makedirs(carousel_dir, exist_ok=True)
+        
+        # Save file
+        file_path = os.path.join(carousel_dir, unique_filename)
+        file.save(file_path)
+        
+        # Create URL for the saved file
+        image_url = f"/static/uploads/carousel/{unique_filename}"
+        
+        title = request.form.get('title', '').strip()
+        description = request.form.get('description', '').strip()
+        
+        # Get the next order number
+        max_order = db.session.query(db.func.max(CarouselImage.order)).scalar() or 0
+        
+        carousel_image = CarouselImage(
+            image_url=image_url,
+            title=title or None,
+            description=description or None,
+            order=max_order + 1
+        )
+        
+        db.session.add(carousel_image)
+        db.session.commit()
+        
+        flash('Carousel image added successfully.', 'success')
+    else:
+        flash('Invalid file type. Please upload a valid image file.', 'danger')
+    
+    return redirect(url_for('admin_carousel'))
+
+
+def allowed_file(filename):
+    """Check if file extension is allowed."""
+    ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+
+@app.route('/admin/carousel/<int:image_id>/delete', methods=['POST'])
+@login_required
+def delete_carousel_image(image_id):
+    """Delete a carousel image (admin only)."""
+    if not current_user.is_admin:
+        flash('Access denied. Admin privileges required.', 'danger')
+        return redirect(url_for('index'))
+    
+    carousel_image = CarouselImage.query.get_or_404(image_id)
+    
+    # Delete the actual file from filesystem
+    if carousel_image.image_url.startswith('/static/uploads/carousel/'):
+        file_path = os.path.join(app.static_folder, carousel_image.image_url.replace('/static/', ''))
+        if os.path.exists(file_path):
+            try:
+                os.remove(file_path)
+            except OSError:
+                pass  # File might already be deleted
+    
+    db.session.delete(carousel_image)
+    db.session.commit()
+    
+    flash('Carousel image deleted successfully.', 'success')
+    return redirect(url_for('admin_carousel'))
+
+
+@app.route('/admin/carousel/<int:image_id>/toggle', methods=['POST'])
+@login_required
+def toggle_carousel_image(image_id):
+    """Toggle carousel image active status (admin only)."""
+    if not current_user.is_admin:
+        flash('Access denied. Admin privileges required.', 'danger')
+        return redirect(url_for('index'))
+    
+    carousel_image = CarouselImage.query.get_or_404(image_id)
+    carousel_image.is_active = not carousel_image.is_active
+    db.session.commit()
+    
+    status = 'activated' if carousel_image.is_active else 'deactivated'
+    flash(f'Carousel image {status} successfully.', 'success')
+    return redirect(url_for('admin_carousel'))
+
+
+@app.route('/admin/carousel/reorder', methods=['POST'])
+@login_required
+def reorder_carousel_images():
+    """Reorder carousel images (admin only)."""
+    if not current_user.is_admin:
+        flash('Access denied. Admin privileges required.', 'danger')
+        return redirect(url_for('index'))
+    
+    image_orders = request.get_json()
+    
+    for image_id, order in image_orders.items():
+        carousel_image = CarouselImage.query.get(int(image_id))
+        if carousel_image:
+            carousel_image.order = order
+    
+    db.session.commit()
+    return jsonify({'success': True})
 
 
 if __name__ == '__main__':
