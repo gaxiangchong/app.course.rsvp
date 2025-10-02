@@ -35,6 +35,11 @@
     <div class="alert alert-secondary">
       <i class="fas fa-utensils mr-2"></i>
       Meal option is available.
+      {% if event.meal_option_price > 0 %}
+        <strong>Additional cost: {{ get_currency_info(default_country).symbol }}{{ "%.2f"|format(event.meal_option_price) }}</strong>
+      {% else %}
+        <strong>Free meal included</strong>
+      {% endif %}
       {% if event.meal_option_remarks %}<br><small>{{ event.meal_option_remarks }}</small>{% endif %}
     </div>
   {% endif %}
@@ -61,6 +66,9 @@
           FREE
         {% else %}
           {{ get_currency_info(default_country).symbol }}{{ "%.2f"|format(event.price) }}
+        {% endif %}
+        {% if event.meal_option_enabled and event.meal_option_price > 0 %}
+          <br><strong>Meal Option:</strong> +{{ get_currency_info(default_country).symbol }}{{ "%.2f"|format(event.meal_option_price) }}
         {% endif %}
       </div>
       
@@ -169,7 +177,9 @@
 $(document).ready(function() {
     let selectedPaymentMethod = 'credit'; // Default to credit payment
     const eventPrice = {{ event.price }};
+    const mealOptionPrice = {{ event.meal_option_price or 0 }};
     const userCredits = {{ current_user.credit_point or 0 }};
+    let mealOptIn = false;
     
     // Show/hide payment section based on RSVP status
     function togglePaymentSection() {
@@ -184,17 +194,27 @@ $(document).ready(function() {
         }
     }
     
+    // Calculate total cost including meal option
+    function calculateTotalCost() {
+        let total = eventPrice;
+        if (mealOptIn && mealOptionPrice > 0) {
+            total += mealOptionPrice;
+        }
+        return total;
+    }
+    
     // Update submit button text and functionality
     function updateSubmitButton() {
         const status = $('#status').val();
         const submitBtn = $('#submitBtn');
+        const totalCost = calculateTotalCost();
         
         if (status === 'Accepted') {
-            if (eventPrice === 0) {
+            if (totalCost === 0) {
                 submitBtn.html('<i class="fas fa-check mr-2"></i>Submit RSVP (Free Event)');
                 submitBtn.removeClass('btn-success btn-warning').addClass('btn-primary');
             } else if (selectedPaymentMethod === 'credit') {
-                if (userCredits >= eventPrice) {
+                if (userCredits >= totalCost) {
                     submitBtn.html('<i class="fas fa-coins mr-2"></i>Pay with Credits & Submit RSVP');
                     submitBtn.removeClass('btn-primary btn-warning').addClass('btn-success');
                 } else {
@@ -230,19 +250,26 @@ $(document).ready(function() {
         updateSubmitButton();
     });
     
+    // Handle meal option checkbox change
+    $('#meal_opt_in').on('change', function() {
+        mealOptIn = $(this).is(':checked');
+        updateSubmitButton();
+    });
+    
     // Handle form submission
     $('#rsvpForm').on('submit', function(e) {
         const status = $('#status').val();
         
         if (status === 'Accepted') {
-            if (eventPrice > 0 && selectedPaymentMethod === 'credit' && userCredits < eventPrice) {
+            const totalCost = calculateTotalCost();
+            if (totalCost > 0 && selectedPaymentMethod === 'credit' && userCredits < totalCost) {
                 e.preventDefault();
-                alert('Insufficient credits. You need ' + (eventPrice - userCredits).toFixed(2) + ' more credits.');
+                alert('Insufficient credits. You need ' + (totalCost - userCredits).toFixed(2) + ' more credits.');
                 return false;
             }
             
             // Add payment method to form data
-            if (eventPrice > 0) {
+            if (totalCost > 0) {
                 $(this).append('<input type="hidden" name="payment_method" value="' + selectedPaymentMethod + '">');
             }
             // Add meal opt-in if present

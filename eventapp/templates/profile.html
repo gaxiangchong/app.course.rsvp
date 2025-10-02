@@ -142,6 +142,36 @@
           <p><strong>Display name:</strong> {{ current_user.display_name }}</p>
         </div>
       </div>
+      
+      <!-- Version Information Section -->
+      <div class="card mt-3">
+        <div class="card-header">
+          <h5><i class="fas fa-code-branch mr-2"></i>System Information</h5>
+        </div>
+        <div class="card-body">
+          <p><strong>App Version:</strong> 
+            <span class="badge badge-info">v2.1.0</span>
+          </p>
+          <p><strong>Release Date:</strong> December 2024</p>
+          <p><strong>Build:</strong> 
+            <code class="small">20241201-1200</code>
+          </p>
+          <p><strong>Features:</strong></p>
+          <ul class="small text-muted">
+            <li>✅ Carousel Management</li>
+            <li>✅ Meal Options & Pricing</li>
+            <li>✅ Pay at Venue</li>
+            <li>✅ Enhanced RSVP System</li>
+            <li>✅ Admin Controls</li>
+          </ul>
+          <hr>
+          <p class="small text-muted">
+            <i class="fas fa-info-circle mr-1"></i>
+            <strong>Developer Notes:</strong><br>
+            This version includes meal option pricing, carousel management, and enhanced payment options for better event management.
+          </p>
+        </div>
+      </div>
     </div>
   </div>
 {% endblock %}

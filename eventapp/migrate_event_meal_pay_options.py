@@ -52,6 +52,13 @@ def migrate_event_meal_pay_options() -> bool:
                 else:
                     print("✅ event.meal_option_remarks already exists")
 
+                # EVENT: meal_option_price
+                if not column_exists(conn, 'event', 'meal_option_price'):
+                    print("📝 Adding column event.meal_option_price ...")
+                    conn.execute(text("ALTER TABLE event ADD COLUMN meal_option_price FLOAT DEFAULT 0.0"))
+                else:
+                    print("✅ event.meal_option_price already exists")
+
                 # EVENT: pay_at_venue_enabled
                 if not column_exists(conn, 'event', 'pay_at_venue_enabled'):
                     print("📝 Adding column event.pay_at_venue_enabled ...")

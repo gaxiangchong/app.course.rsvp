@@ -70,9 +70,25 @@
         <input class="form-check-input" type="checkbox" id="meal_option_enabled" name="meal_option_enabled" {% if event.meal_option_enabled %}checked{% endif %}>
         <label class="form-check-label" for="meal_option_enabled">Enable meal option for attendees</label>
       </div>
-      <div class="form-group mb-3">
-        <label for="meal_option_remarks">Meal option remarks (visible to users)</label>
-        <input type="text" class="form-control" id="meal_option_remarks" name="meal_option_remarks" value="{{ event.meal_option_remarks or '' }}" placeholder="e.g., Vegetarian available, halal on request, etc.">
+      <div class="row mb-3">
+        <div class="col-md-8">
+          <div class="form-group">
+            <label for="meal_option_remarks">Meal option remarks (visible to users)</label>
+            <input type="text" class="form-control" id="meal_option_remarks" name="meal_option_remarks" value="{{ event.meal_option_remarks or '' }}" placeholder="e.g., Vegetarian available, halal on request, etc.">
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="form-group">
+            <label for="meal_option_price">Meal option price ({{ get_currency_info(default_country).code }})</label>
+            <div class="input-group">
+              <div class="input-group-prepend">
+                <span class="input-group-text">{{ get_currency_info(default_country).symbol }}</span>
+              </div>
+              <input type="number" class="form-control" id="meal_option_price" name="meal_option_price" min="0" step="0.01" value="{{ event.meal_option_price or 0 }}" placeholder="0.00">
+            </div>
+            <small class="form-text text-muted">Additional cost (0 = free meal)</small>
+          </div>
+        </div>
       </div>
       <div class="form-check">
         <input class="form-check-input" type="checkbox" id="pay_at_venue_enabled" name="pay_at_venue_enabled" {% if event.pay_at_venue_enabled %}checked{% endif %}>

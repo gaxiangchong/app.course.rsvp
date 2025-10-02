@@ -389,6 +389,7 @@ class Event(db.Model):
     # New options
     meal_option_enabled = db.Column(db.Boolean, default=False)
     meal_option_remarks = db.Column(db.Text, nullable=True)
+    meal_option_price = db.Column(db.Float, default=0.0)  # Additional cost for meal option
     pay_at_venue_enabled = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -1520,27 +1521,32 @@ def event_detail(event_id):
         
         # Handle payment for accepted RSVPs
         if status == 'Accepted':
-            if event.price > 0:
+            # Calculate total cost including meal option
+            total_cost = event.price
+            if rsvp.meal_opt_in and event.meal_option_enabled and event.meal_option_price > 0:
+                total_cost += event.meal_option_price
+            
+            if total_cost > 0:
                 if not payment_method:
                     flash('Please select a payment method for this paid event.', 'danger')
                     return redirect(url_for('event_detail', event_id=event.id))
                 
                 if payment_method == 'credit':
                     # Check if user has sufficient credits
-                    if (current_user.credit_point or 0) < event.price:
-                        flash('Insufficient credits. You need {:.2f} more credits.'.format(event.price - (current_user.credit_point or 0)), 'danger')
+                    if (current_user.credit_point or 0) < total_cost:
+                        flash('Insufficient credits. You need {:.2f} more credits.'.format(total_cost - (current_user.credit_point or 0)), 'danger')
                         return redirect(url_for('event_detail', event_id=event.id))
                     
                     # Deduct credits and mark as paid
-                    current_user.credit_point = (current_user.credit_point or 0) - event.price
+                    current_user.credit_point = (current_user.credit_point or 0) - total_cost
                     rsvp.payment_status = 'paid'
-                    rsvp.payment_amount = event.price
+                    rsvp.payment_amount = total_cost
                     rsvp.payment_method = 'credit'
                     flash('Payment successful! Credits deducted from your account.', 'success')
                 elif payment_method == 'pay_at_venue' and event.pay_at_venue_enabled:
                     # Mark as pending payment to be collected at venue
                     rsvp.payment_status = 'pending'
-                    rsvp.payment_amount = event.price
+                    rsvp.payment_amount = total_cost
                     rsvp.payment_method = 'pay_at_venue'
                     flash('You selected Pay at Venue. Please prepare payment on arrival.', 'info')
             else:
@@ -1651,6 +1657,7 @@ def update_event(event_id):
         # New options
         meal_option_enabled = request.form.get('meal_option_enabled') == 'on'
         meal_option_remarks = request.form.get('meal_option_remarks') or None
+        meal_option_price = request.form.get('meal_option_price', 0)
         pay_at_venue_enabled = request.form.get('pay_at_venue_enabled') == 'on'
         rsvp_deadline_str = request.form.get('rsvp_deadline')
         feedback_enabled = request.form.get('feedback_enabled') == 'on'  # Checkbox value
@@ -1716,6 +1723,18 @@ def update_event(event_id):
         event.price = price_float
         event.meal_option_enabled = meal_option_enabled
         event.meal_option_remarks = meal_option_remarks
+        
+        # Validate and convert meal option price
+        try:
+            meal_option_price_float = float(meal_option_price)
+            if meal_option_price_float < 0:
+                flash('Meal option price cannot be negative.', 'danger')
+                return redirect(url_for('update_event', event_id=event.id))
+        except (ValueError, TypeError):
+            flash('Meal option price must be a valid number.', 'danger')
+            return redirect(url_for('update_event', event_id=event.id))
+        
+        event.meal_option_price = meal_option_price_float
         event.pay_at_venue_enabled = pay_at_venue_enabled
         event.rsvp_deadline = rsvp_deadline
         # Check if feedback was just enabled
