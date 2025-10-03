@@ -2358,6 +2358,12 @@ def cancel_event(event_id):
         flash('You do not have permission to cancel this event.', 'danger')
         return redirect(url_for('event_detail', event_id=event.id))
     
+    # Require password confirmation to prevent accidental cancellations
+    password = request.form.get('password')
+    if not password or not current_user.check_password(password):
+        flash('Password confirmation failed. Event not cancelled.', 'danger')
+        return redirect(url_for('update_event', event_id=event.id))
+    
     event.status = 'cancelled'
     db.session.commit()
     
