@@ -55,7 +55,7 @@ git push origin main
 ```bash
 # SSH into PythonAnywhere
 # Navigate to your project directory
-cd /home/yourusername/app.course.rsvp/eventapp
+cd /home/rsvp13/app.course.rsvp/eventapp
 
 # Pull latest changes
 git pull origin main
