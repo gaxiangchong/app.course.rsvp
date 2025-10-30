@@ -277,6 +277,14 @@
         max-width: 1200px;
         margin: 0 auto;
       }
+      /* Desktop: stretch header to full width so edges align left/right */
+      @media (min-width: 992px) {
+        .app-header .header-content {
+          max-width: none;
+          width: 100%;
+          margin: 0;
+        }
+      }
       
       .logo-section {
         display: flex;
