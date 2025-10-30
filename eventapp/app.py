@@ -2439,12 +2439,24 @@ def export_attendees(event_id):
     csv_content = "Name,Email,Status,Guests,Note,Checked In,RSVP Date\n"
     for rsvp in attendees:
         csv_content += f'"{rsvp.attendee.display_name}","{rsvp.attendee.email}","{rsvp.status}",{rsvp.guests},"{rsvp.note or ""}","{"Yes" if rsvp.checked_in else "No"}","{rsvp.created_at.strftime("%Y-%m-%d %H:%M")}"\n'
-    
+
+    # Ensure UTF-8 bytes (with BOM for Excel compatibility) and RFC 5987 filename
     from flask import Response
+    from urllib.parse import quote as url_quote
+    import re
+
+    filename_base = f"{event.name}_attendees.csv"
+    ascii_fallback = re.sub(r'[^A-Za-z0-9._-]+', '_', filename_base)
+    content_disposition = (
+        f"attachment; filename=\"{ascii_fallback}\"; "
+        f"filename*=UTF-8''{url_quote(filename_base)}"
+    )
+
+    data = csv_content.encode('utf-8-sig')
     return Response(
-        csv_content,
-        mimetype='text/csv',
-        headers={'Content-Disposition': f'attachment; filename={event.name}_attendees.csv'}
+        data,
+        mimetype='text/csv; charset=utf-8',
+        headers={'Content-Disposition': content_disposition}
     )
 
 

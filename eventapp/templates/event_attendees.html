@@ -60,7 +60,7 @@
             <th>Email</th>
             <th>Status</th>
             <th>Guests</th>
-            <th>Note</th>
+            <th>Meal Option</th>
             <th>Checked In</th>
             <th>RSVP Date</th>
             <th>Actions</th>
@@ -83,7 +83,13 @@
                 {% endif %}
               </td>
               <td>{{ rsvp.guests or 0 }}</td>
-              <td>{{ rsvp.note or '-' }}</td>
+              <td>
+                {% if rsvp.meal_opt_in %}
+                  <span class="badge badge-info">Yes</span>
+                {% else %}
+                  <span class="badge badge-secondary">No</span>
+                {% endif %}
+              </td>
               <td>
                 {% if rsvp.checked_in %}
                   <span class="badge badge-success">Yes</span>
