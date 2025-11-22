@@ -52,22 +52,81 @@ def update_app_for_no_email():
     with open('app.py', 'r', encoding='utf-8') as f:
         content = f.read()
     
-    # Find and replace email verification logic
-    old_code = """        # Send verification email
-        try:
-            send_verification_email(user)
-            flash('Registration successful! Please check your email to verify your account.', 'success')
-        except Exception as e:
-            print(f"Failed to send verification email: {e}")
-            flash('Registration successful, but failed to send verification email. Please check your email configuration or contact support.', 'warning')"""
+    changes_made = False
     
-    new_code = """        # Skip email verification for now
-        user.email_verified = True
-        flash('Registration successful! You can now log in.', 'success')"""
-    
-    if old_code in content:
-        content = content.replace(old_code, new_code)
+    # 1. Update registration to skip email verification
+    old_registration_code = """        # Send verification email
+        if send_verification_email(user):
+            flash('Registration successful! Please check your email to verify your account before logging in.', 'success')
+        else:
+            flash('Registration successful, but failed to send verification email. Please contact support.', 'warning')
         
+        return redirect(url_for('resend_verification'))"""
+    
+    new_registration_code = """        # Skip email verification for now
+        user.email_verified = True
+        flash('Registration successful! You can now log in.', 'success')
+        
+        return redirect(url_for('login'))"""
+    
+    if old_registration_code in content:
+        content = content.replace(old_registration_code, new_registration_code)
+        changes_made = True
+        print("✅ Updated registration to skip email verification")
+    else:
+        print("⚠️ Could not find registration email verification code to replace")
+    
+    # 2. Disable the check_email_verification middleware
+    old_middleware_code = """@app.before_request
+def check_email_verification():
+    \"\"\"Check if logged-in user has verified their email.\"\"\"
+    if current_user.is_authenticated and not current_user.email_verified:
+        # Allow users with default passwords to bypass email verification
+        if current_user.has_default_password:
+            # Skip email verification for users with default passwords
+            pass
+        else:
+            # Allow access to verification-related routes
+            if request.endpoint in ['verify_email', 'resend_verification', 'logout']:
+                return
+            # Redirect to verification page for other routes
+            flash('Please verify your email address to continue using your account.', 'warning')
+            return redirect(url_for('resend_verification'))"""
+    
+    new_middleware_code = """@app.before_request
+def check_email_verification():
+    \"\"\"Check if logged-in user has verified their email.\"\"\"
+    # Email verification temporarily disabled
+    pass"""
+    
+    if old_middleware_code in content:
+        content = content.replace(old_middleware_code, new_middleware_code)
+        changes_made = True
+        print("✅ Disabled email verification middleware")
+    else:
+        print("⚠️ Could not find email verification middleware to disable")
+    
+    # 3. Update login to skip email verification check
+    # Look for the login check
+    old_login_check = """            # Check if email is verified (only for users without default passwords)
+            if not user.email_verified:
+                flash('Please verify your email address before logging in. Check your email for a verification link.', 'warning')
+                return redirect(url_for('resend_verification'))"""
+    
+    new_login_check = """            # Email verification check disabled
+            # Auto-verify email for login
+            if not user.email_verified:
+                user.email_verified = True
+                db.session.commit()"""
+    
+    if old_login_check in content:
+        content = content.replace(old_login_check, new_login_check)
+        changes_made = True
+        print("✅ Updated login to skip email verification check")
+    else:
+        print("⚠️ Could not find login email verification check to replace")
+    
+    if changes_made:
         # Write updated content
         with open('app.py', 'w', encoding='utf-8') as f:
             f.write(content)
@@ -75,7 +134,7 @@ def update_app_for_no_email():
         print("✅ Updated app.py to skip email verification")
         return True
     else:
-        print("⚠️ Could not find email verification code to replace")
+        print("⚠️ No changes were made to app.py")
         return False
 
 def main():

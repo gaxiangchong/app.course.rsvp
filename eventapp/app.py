@@ -338,6 +338,59 @@ class User(UserMixin, db.Model):
         return self.username
 
 
+class AppSettings(db.Model):
+    """Application-wide settings stored in database.
+    
+    Attributes:
+        id (int): primary key.
+        key (str): unique setting key.
+        value (str): setting value (stored as string, converted as needed).
+        description (str): description of what this setting does.
+        updated_at (datetime): last update timestamp.
+    """
+    id = db.Column(db.Integer, primary_key=True)
+    key = db.Column(db.String(100), unique=True, nullable=False)
+    value = db.Column(db.String(500), nullable=False)
+    description = db.Column(db.String(200), nullable=True)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    @staticmethod
+    def get_setting(key: str, default: str = None):
+        """Get a setting value by key."""
+        setting = AppSettings.query.filter_by(key=key).first()
+        if setting:
+            return setting.value
+        return default
+    
+    @staticmethod
+    def set_setting(key: str, value: str, description: str = None):
+        """Set a setting value by key."""
+        setting = AppSettings.query.filter_by(key=key).first()
+        if setting:
+            setting.value = value
+            setting.updated_at = datetime.utcnow()
+            if description:
+                setting.description = description
+        else:
+            setting = AppSettings(key=key, value=value, description=description)
+            db.session.add(setting)
+        db.session.commit()
+        return setting
+    
+    @staticmethod
+    def get_bool_setting(key: str, default: bool = False) -> bool:
+        """Get a boolean setting value."""
+        value = AppSettings.get_setting(key)
+        if value is None:
+            return default
+        return value.lower() in ('true', '1', 'yes', 'on')
+    
+    @staticmethod
+    def set_bool_setting(key: str, value: bool, description: str = None):
+        """Set a boolean setting value."""
+        return AppSettings.set_setting(key, 'true' if value else 'false', description)
+
+
 class Event(db.Model):
     """Represents an event created by an organiser.
 
@@ -1033,6 +1086,13 @@ def generate_qr_image(code: str) -> str:
 
 def create_tables():
     db.create_all()
+    # Initialize default settings if they don't exist
+    if not AppSettings.query.filter_by(key='email_verification_enabled').first():
+        AppSettings.set_bool_setting(
+            'email_verification_enabled',
+            True,  # Default to enabled
+            'Enable or disable email verification requirement for new registrations'
+        )
     
     # Add sample events with cover images if no events exist
     # Temporarily commented out to avoid database query during import
@@ -1047,6 +1107,13 @@ with app.app_context():
 @app.before_request
 def check_email_verification():
     """Check if logged-in user has verified their email."""
+    # Check if email verification is enabled in settings
+    email_verification_enabled = AppSettings.get_bool_setting('email_verification_enabled', default=True)
+    
+    if not email_verification_enabled:
+        # Email verification is disabled, skip all checks
+        return
+    
     if current_user.is_authenticated and not current_user.email_verified:
         # Allow users with default passwords to bypass email verification
         if current_user.has_default_password:
@@ -1139,17 +1206,29 @@ def register():
         
         user = User(username=username, email=email, phone=phone, country_code=country_code, membership_type=membership_type, country='Singapore')
         user.set_password(password)
-        user.email_verified = False  # Require email verification
-        db.session.add(user)
-        db.session.commit()
         
-        # Send verification email
-        if send_verification_email(user):
-            flash('Registration successful! Please check your email to verify your account before logging in.', 'success')
+        # Check if email verification is enabled
+        email_verification_enabled = AppSettings.get_bool_setting('email_verification_enabled', default=True)
+        
+        if email_verification_enabled:
+            user.email_verified = False  # Require email verification
+            db.session.add(user)
+            db.session.commit()
+            
+            # Send verification email
+            if send_verification_email(user):
+                flash('Registration successful! Please check your email to verify your account before logging in.', 'success')
+            else:
+                flash('Registration successful, but failed to send verification email. Please contact support.', 'warning')
+            
+            return redirect(url_for('resend_verification'))
         else:
-            flash('Registration successful, but failed to send verification email. Please contact support.', 'warning')
-        
-        return redirect(url_for('resend_verification'))
+            # Email verification disabled - auto-verify user
+            user.email_verified = True
+            db.session.add(user)
+            db.session.commit()
+            flash('Registration successful! You can now log in.', 'success')
+            return redirect(url_for('login'))
     return render_template('register.html')
 
 
@@ -1172,10 +1251,15 @@ def login():
                 next_page = request.args.get('next')
                 return redirect(next_page or url_for('index'))
             
-            # Check if email is verified (only for users without default passwords)
-            if not user.email_verified:
+            # Check if email is verified (only for users without default passwords and if email verification is enabled)
+            email_verification_enabled = AppSettings.get_bool_setting('email_verification_enabled', default=True)
+            if email_verification_enabled and not user.email_verified:
                 flash('Please verify your email address before logging in. Check your email for a verification link.', 'warning')
                 return redirect(url_for('resend_verification'))
+            # If email verification is disabled, auto-verify the user
+            elif not email_verification_enabled and not user.email_verified:
+                user.email_verified = True
+                db.session.commit()
             
             login_user(user)
             flash('Logged in successfully.', 'success')
@@ -1852,7 +1936,44 @@ def admin_members():
     for grade in MEMBERSHIP_GRADES.keys():
         grade_stats[grade] = len([m for m in members if m.membership_grade == grade])
     
-    return render_template('admin_members.html', members=members, grade_stats=grade_stats, get_membership_type_info=get_membership_type_info, MEMBERSHIP_TYPES=MEMBERSHIP_TYPES)
+    # Get email verification setting
+    email_verification_enabled = AppSettings.get_bool_setting('email_verification_enabled', default=True)
+    
+    return render_template('admin_members.html', 
+                         members=members, 
+                         grade_stats=grade_stats, 
+                         get_membership_type_info=get_membership_type_info, 
+                         MEMBERSHIP_TYPES=MEMBERSHIP_TYPES,
+                         email_verification_enabled=email_verification_enabled)
+
+
+@app.route('/admin/settings/email-verification', methods=['POST'])
+@login_required
+def update_email_verification_setting():
+    """Update email verification setting (admin only)."""
+    if not current_user.is_admin:
+        flash('Access denied. Admin privileges required.', 'danger')
+        return redirect(url_for('index'))
+    
+    # Get superuser password for security
+    superuser_password = request.form.get('superuser_password')
+    if not validate_superuser_password(superuser_password):
+        flash('Invalid superuser password.', 'danger')
+        return redirect(url_for('admin_members'))
+    
+    # Get the new setting value
+    enabled = request.form.get('email_verification_enabled') == 'on'
+    
+    # Update the setting
+    AppSettings.set_bool_setting(
+        'email_verification_enabled', 
+        enabled,
+        'Enable or disable email verification requirement for new registrations'
+    )
+    
+    status = 'enabled' if enabled else 'disabled'
+    flash(f'Email verification has been {status}. Changes take effect immediately.', 'success')
+    return redirect(url_for('admin_members'))
 
 
 @app.route('/admin/members/export')
